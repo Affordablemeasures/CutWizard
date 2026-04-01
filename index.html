@@ -1,0 +1,2228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>CutWizard – Multi-Fabric Roller Blind Cut Plans</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#0f1115;
+      --panel:#171a21;
+      --panel2:#1e2230;
+      --txt:#e9ecf1;
+      --muted:#a7b0c0;
+      --accent:#c4f000;
+      --line:#2a2f40;
+      --ok:#63e6be;
+      --bad:#ff5c5c;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--txt);
+    }
+    header{
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+    }
+    header h1{font-size:16px;margin:0;font-weight:800}
+    header .tag{font-size:12px;color:var(--muted)}
+    .wrap{max-width:1450px;margin:0 auto;padding:14px 16px 80px}
+    .grid{display:grid;grid-template-columns:1.25fr .75fr;gap:12px}
+    @media (max-width: 980px){ .grid{grid-template-columns:1fr;} }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+    }
+    h2{margin:0 0 10px;font-size:14px}
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin:8px 0 6px;
+    }
+    input,select{
+      width:100%;
+      padding:10px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:var(--panel2);
+      color:var(--txt);
+      outline:none;
+    }
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .row > *{flex:1;min-width:220px}
+    .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    button{
+      border:1px solid var(--line);
+      background:#23283a;
+      color:var(--txt);
+      padding:10px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:800;
+    }
+    button.primary{background:var(--accent);color:#0b0d10;border-color:#a6cc00}
+    button.ghost{background:transparent}
+    button.danger{background:transparent;border-color:#5a2a2a;color:#ffb3b3}
+    button.isSaving{
+      background:#f5b942;
+      color:#111;
+      border-color:#f5b942;
+    }
+    button.isSaved{
+      background:#63e6be;
+      color:#111;
+      border-color:#63e6be;
+    }
+    button.isError{
+      background:#ff6b6b;
+      color:#111;
+      border-color:#ff6b6b;
+    }
+    .hint{font-size:12px;color:var(--muted);line-height:1.35}
+    .divider{height:1px;background:var(--line);margin:12px 0}
+    .pill{
+      display:inline-block;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      font-size:12px;
+      color:var(--muted);
+    }
+    .okBox{
+      border:1px solid #1f5a3f;
+      background:#0f1c16;
+      padding:10px;
+      border-radius:12px;
+      color:#b6ffe0;
+      font-size:12px;
+      margin-top:10px;
+    }
+    .errBox{
+      border:1px solid #5a2a2a;
+      background:#1c0f13;
+      padding:10px;
+      border-radius:12px;
+      color:#ffb3b3;
+      font-size:12px;
+      margin-top:10px;
+    }
+    table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      border:1px solid var(--line);
+      border-radius:12px;
+      overflow:hidden;
+      background:#131723;
+    }
+    th,td{
+      padding:8px;
+      border-bottom:1px solid var(--line);
+      font-size:12px;
+      vertical-align:middle;
+    }
+    th{
+      position:sticky;
+      top:0;
+      background:#101424;
+      color:#cfd6e6;
+      font-weight:900;
+      text-align:left;
+      z-index:2;
+    }
+    tr:last-child td{border-bottom:none}
+    .chk{transform:scale(1.2)}
+    .mini{padding:6px 8px;border-radius:10px}
+    .w60{width:60px}
+    .w80{width:80px}
+    .w90{width:90px}
+    .w110{width:110px}
+    .w140{width:140px}
+    .w180{width:180px}
+    .w220{width:220px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    tr.readyRow td{opacity:0.55}
+    tr.readyRow td input,
+    tr.readyRow td select,
+    tr.readyRow td button{opacity:0.85}
+    tr.readyRow{background:rgba(255,255,255,0.03)}
+    .planCard{
+      background:#0f121b;
+      border:1px dashed #2a2f40;
+      border-radius:14px;
+      padding:12px;
+      margin:12px 0;
+    }
+    .svgWrap{
+      background:white;
+      border:1px solid #ddd;
+      border-radius:10px;
+      overflow:hidden;
+      margin-top:10px;
+    }
+    .svgWrap svg{display:block}
+    .invGrid{
+      margin-top:8px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      overflow:hidden;
+      background:#121625;
+    }
+    .invRow{
+      display:grid;
+      grid-template-columns:110px 1fr 140px;
+      gap:8px;
+      align-items:center;
+      padding:8px;
+      border-bottom:1px solid var(--line);
+    }
+    .invRow:last-child{border-bottom:none}
+    .invRow .lbl{font-size:12px;color:#cfd6e6;font-weight:800}
+    .invRow .sub{font-size:11px;color:var(--muted)}
+    .invRow input{padding:8px}
+    .msgLink{
+      color:#d7ffd1;
+      text-decoration:underline;
+      font-weight:700;
+    }
+    .driveJobRow{
+      display:grid;
+      grid-template-columns:1fr auto auto;
+      gap:8px;
+      align-items:center;
+      padding:8px 10px;
+      border-bottom:1px solid var(--line);
+      font-size:12px;
+    }
+    .driveJobRow:last-child{border-bottom:none}
+    .driveJobRow:hover{background:rgba(255,255,255,0.04)}
+    .driveJobName{font-weight:700;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .driveJobMeta{font-size:11px;color:var(--muted);margin-top:2px;}
+    /* ── Custom modal (replaces prompt/confirm — works inside Google Sites) ── */
+    .cwModalOverlay{
+      position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;
+      display:flex;align-items:center;justify-content:center;padding:16px;
+    }
+    .cwModal{
+      background:#1e2230;border:1px solid #3a4060;border-radius:16px;
+      padding:20px;max-width:480px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,0.6);
+    }
+    .cwModal h3{margin:0 0 10px;font-size:15px;color:#e9ecf1;}
+    .cwModal p{margin:0 0 14px;font-size:13px;color:#a7b0c0;white-space:pre-wrap;line-height:1.5;}
+    .cwModal input,.cwModal select{
+      width:100%;padding:9px 10px;border-radius:9px;border:1px solid #3a4060;
+      background:#0f1115;color:#e9ecf1;font-size:13px;margin-bottom:12px;outline:none;
+    }
+    .cwModalBtns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;}
+    .cwModalBtns button{padding:8px 16px;border-radius:9px;border:1px solid #3a4060;
+      background:#23283a;color:#e9ecf1;cursor:pointer;font-weight:700;font-size:13px;}
+    .cwModalBtns button.primary{background:#c4f000;color:#0b0d10;border-color:#a6cc00;}
+    .cwModalBtns button.danger{background:transparent;border-color:#5a2a2a;color:#ffb3b3;}
+    @media print{
+      header, .grid, .noPrint, #msgBox, #debugBox, #screenNotes, #jsError {
+        display:none !important;
+      }
+      body{
+        background:#fff !important;
+        color:#000 !important;
+        margin:0 !important;
+      }
+      .wrap{
+        max-width:none !important;
+        padding:0 !important;
+        margin:0 !important;
+      }
+      .printCard{
+        display:block !important;
+        border:none !important;
+        margin:0 !important;
+        padding:0 !important;
+      }
+      .printCard h2, .printCard .hint{display:none !important}
+      #plansOut{
+        display:block !important;
+        margin:0 !important;
+        padding:0 !important;
+      }
+      .planCard{
+        page-break-after:always;
+        break-after:page;
+        border:none !important;
+        margin:0 !important;
+        padding:0 !important;
+        background:#fff !important;
+      }
+      .planCard:last-child{
+        page-break-after:auto !important;
+        break-after:auto !important;
+      }
+      .svgWrap{
+        border:none !important;
+        margin:0 !important;
+        border-radius:0 !important;
+        overflow:hidden !important;
+      }
+      .svgWrap svg{
+        height:277mm !important;
+        width:100% !important;
+      }
+    }
+    @page{size:A4 portrait;margin:10mm}
+  </style>
+</head>
+<body>
+<header class="noPrint">
+  <div>
+    <h1>CutWizard – Multi-Fabric Roller Blind Cut Plans</h1>
+    <div class="tag">Auto-add next row • Excel Enter jump • Save/Load • Delete fabric • Per-window Railroad • Waste Mode • Google Drive Save/Load • Excel Import</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <button class="primary" id="btnPrint">Print Factory Sheets</button>
+    <button id="btnDownloadPdf" style="background:#1a4a2a;border-color:#2a7a3a;color:#b0f0c0;">&#8659; Download PDF</button>
+    <button id="btnEmailPlans" style="background:#1a3a5c;border-color:#2a5a8c;color:#b8d4f0;">&#9993; Email Cut Plans</button>
+  </div>
+</header>
+<div class="wrap">
+  <div id="jsError" class="errBox noPrint" style="display:none"></div>
+  <div class="grid noPrint">
+    <div class="card">
+      <h2>Customer + Job</h2>
+      <div class="row">
+        <div>
+          <label>Job reference / code</label>
+          <input id="jobRef" placeholder="e.g. 05Mar2026001"/>
+        </div>
+        <div>
+          <label>Customer name</label>
+          <input id="custName" placeholder="e.g. Mrs Smith"/>
+        </div>
+        <div>
+          <label>Customer address</label>
+          <input id="custAddr" placeholder="e.g. 12 Example St, Newstead TAS"/>
+        </div>
+        <div>
+          <label>Factory email (for Email Cut Plans button)</label>
+          <input id="factoryEmail" type="email" placeholder="e.g. factory@yourbusiness.com.au"/>
+        </div>
+      </div>
+      <div class="btnrow">
+        <button id="btnNewJob">New Job</button>
+        <button id="btnSaveLocal">Save Job (Local)</button>
+        <button class="primary" id="btnSaveDrive">Save to Google Drive</button>
+        <button class="ghost" id="btnLoadLocal">Load Job (Local)</button>
+        <button class="ghost" id="btnDeleteLocal">Delete Saved Job (Local)</button>
+        <button class="ghost" id="btnListDrive">List / Load from Drive</button>
+      </div>
+      <div class="btnrow">
+        <button id="btnDownloadJob">Download Job File</button>
+        <button id="btnOpenJob">Open Saved Job</button>
+        <input id="fileImport" type="file" accept=".json,.cutwizard.json,application/json" style="display:none"/>
+        <button id="btnImportExcel">Import from Excel</button>
+        <input id="excelImport" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none"/>
+      </div>
+      <div id="jobLibraryOut" class="hint" style="margin-top:10px"></div>
+      <div id="driveLibraryOut" style="margin-top:10px">
+        <div id="driveSearchPanel" style="display:none;margin-top:8px;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+            <input id="driveSearchInput" placeholder="Search job ref or customer name..." style="flex:1;min-width:180px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:12px;"/>
+            <button class="ghost" id="btnDriveSearchClear" style="padding:6px 10px;font-size:12px;">✕ Clear</button>
+            <span id="driveJobCount" class="pill"></span>
+          </div>
+          <div id="driveJobList" style="max-height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;background:#121625;"></div>
+          <div id="driveShowMore" style="display:none;margin-top:8px;text-align:center;">
+            <button class="ghost" id="btnDriveShowMore" style="font-size:12px;">Show more jobs</button>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <h2>Rules</h2>
+      <div class="row">
+        <div>
+          <label>Entry mode</label>
+          <select id="entryMode">
+            <option value="cut" selected>Enter CUT sizes (no deductions/allowance applied)</option>
+            <option value="window">Enter window sizes (apply deductions/allowance)</option>
+          </select>
+        </div>
+        <div>
+          <label>Width deduction (mm)</label>
+          <input id="deductW" type="number" value="31"/>
+        </div>
+        <div>
+          <label>Drop allowance (mm)</label>
+          <input id="addD" type="number" value="350"/>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Default orientation (used when row = Auto)</label>
+          <select id="defaultOrient">
+            <option value="normal" selected>Normal</option>
+            <option value="railroad">Railroad</option>
+          </select>
+        </div>
+        <div>
+          <label>Optimise mode</label>
+          <select id="optimiseMode">
+            <option value="meterage" selected>Minimise Meterage</option>
+            <option value="waste">Waste Mode (Minimise Waste)</option>
+            <option value="balanced">Balanced</option>
+          </select>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <h2>Fabrics</h2>
+      <div class="row">
+        <div>
+          <label>Fabric name</label>
+          <input id="fabName" placeholder="e.g. Vibe Pure"/>
+        </div>
+        <div>
+          <label>Roll widths to add (mm) — enter one or more, e.g. 2000 or 2000,2500,3000 or 2m 2.5m 3m. Re-saving the same fabric ADDS widths, never removes them.</label>
+          <input id="fabWidths" placeholder="e.g. 2000  or  2000,2500,3000  or  2m 2.5m 3m"/>
+        </div>
+      </div>
+      <div class="btnrow">
+        <button id="btnAddFabric">Add / Update Fabric</button>
+        <button class="danger" id="btnDeleteFabric">Delete Fabric</button>
+      </div>
+      <div id="fabricCfgOut" class="hint" style="margin-top:10px"></div>
+      <div id="fabSettingsBox"></div>
+      <div class="divider"></div>
+      <h2>Blind Entry Table</h2>
+      <div class="actions" style="margin-top:10px">
+        <button id="btnAddRow">Add Row</button>
+        <button class="ghost" id="btnSelectAll">Select All</button>
+        <button class="ghost" id="btnSelectNone">Select None</button>
+        <select id="selectFabricBulk" class="mini w220"></select>
+        <button class="ghost" id="btnSelectFabric">Select all for Fabric</button>
+        <button class="ghost" id="btnUnselectFabric">Unselect all for Fabric</button>
+      </div>
+      <div class="hint" style="margin-top:8px">
+        Speed: typing in the last row auto-adds the next line. Enter behaves like Excel (Room→Width→Drop→Next Room).
+      </div>
+      <div id="tableOut" style="margin-top:10px"></div>
+      <div class="btnrow">
+        <button class="primary" id="btnGenerate">Generate Plans</button>
+      </div>
+      <div id="msgBox"></div>
+      <div id="debugBox" class="hint" style="margin-top:10px;opacity:.9"></div>
+    </div>
+    <div class="card">
+      <h2>Roll usage summary</h2>
+      <div class="hint">On-screen only. Printed pages remain cut sheets only.</div>
+      <div class="divider"></div>
+      <div id="screenNotes" class="hint"></div>
+    </div>
+  </div>
+  <div class="card printCard">
+    <h2>Printable Cut Sheets</h2>
+    <div class="hint">A4 portrait • 1 page per Fabric + Width + Orientation</div>
+    <div id="plansOut"></div>
+  </div>
+</div>
+<script>
+// ── Modal helpers (prompt/confirm replacements for Google Sites) ──────────────
+function cwConfirm(message, onYes, onNo, yesLabel="OK", noLabel="Cancel", danger=false){
+  const overlay = document.createElement("div");
+  overlay.className = "cwModalOverlay";
+  overlay.innerHTML = `
+    <div class="cwModal">
+      <p>${escapeXML(message)}</p>
+      <div class="cwModalBtns">
+        <button class="cwBtnNo">${escapeXML(noLabel)}</button>
+        <button class="cwBtnYes ${danger?"danger":"primary"}">${escapeXML(yesLabel)}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector(".cwBtnYes").addEventListener("click",()=>{
+    document.body.removeChild(overlay); if(onYes) onYes();
+  });
+  overlay.querySelector(".cwBtnNo").addEventListener("click",()=>{
+    document.body.removeChild(overlay); if(onNo) onNo();
+  });
+}
+
+function cwPrompt(message, defaultValue, options, onOk, onCancel){
+  // options: array of strings for a select, or null for free-text input
+  const overlay = document.createElement("div");
+  overlay.className = "cwModalOverlay";
+  const inputHTML = (options && options.length)
+    ? `<select class="cwPromptInput">${options.map(o=>`<option value="${escapeXML(o)}" ${o===defaultValue?"selected":""}>${escapeXML(o)}</option>`).join("")}</select>`
+    : `<input class="cwPromptInput" value="${escapeXML(defaultValue||"")}" placeholder="${escapeXML(message)}"/>`;
+  overlay.innerHTML = `
+    <div class="cwModal">
+      <p>${escapeXML(message)}</p>
+      ${inputHTML}
+      <div class="cwModalBtns">
+        <button class="cwBtnCancel">Cancel</button>
+        <button class="cwBtnOk primary">OK</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const inp = overlay.querySelector(".cwPromptInput");
+  // Auto-focus and select all text
+  setTimeout(()=>{ inp.focus(); if(inp.select) inp.select(); }, 50);
+  // Allow Enter key to confirm
+  inp.addEventListener("keydown",(e)=>{
+    if(e.key==="Enter"){ e.preventDefault(); overlay.querySelector(".cwBtnOk").click(); }
+    if(e.key==="Escape"){ overlay.querySelector(".cwBtnCancel").click(); }
+  });
+  overlay.querySelector(".cwBtnOk").addEventListener("click",()=>{
+    const val = inp.value;
+    document.body.removeChild(overlay);
+    if(onOk) onOk(val);
+  });
+  overlay.querySelector(".cwBtnCancel").addEventListener("click",()=>{
+    document.body.removeChild(overlay);
+    if(onCancel) onCancel();
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CW = { fabrics:{}, rows:[], lastPlans:null, _focus:null };
+const $ = (id)=>document.getElementById(id);
+const clean = s => String(s||"").trim();
+const safeInt = (x, def=0) => {
+  const n = parseInt(String(x).trim(), 10);
+  return Number.isFinite(n) && n >= 0 ? n : def;
+};
+const escapeXML = s => String(s).replace(/[<>&'"]/g, c => ({
+  "<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;",'"':"&quot;"
+}[c]));
+const mFromMm = n => (n/1000).toFixed(2);
+const sum = arr => arr.reduce((a,b)=>a+b,0);
+const trunc = (s, n=85) => (s && s.length > n) ? (s.slice(0,n-1) + "…") : (s || "");
+function showMsg(kind, html){
+  const box = $("msgBox");
+  if(!box) return;
+  box.innerHTML = html ? `<div class="${kind==="ok"?"okBox":"errBox"}">${html}</div>` : "";
+}
+function setDebug(text){
+  const box = $("debugBox");
+  if(!box) return;
+  box.innerHTML = `<span class="pill">Status</span> ${escapeXML(text)}`;
+}
+function setDriveButtonState(state){
+  const btn = $("btnSaveDrive");
+  if(!btn) return;
+  btn.classList.remove("isSaving","isSaved","isError");
+  btn.classList.add("primary");
+  if(state === "saving"){
+    btn.classList.remove("primary");
+    btn.classList.add("isSaving");
+    btn.textContent = "Saving to Google Drive...";
+  } else if(state === "saved"){
+    btn.classList.remove("primary");
+    btn.classList.add("isSaved");
+    btn.textContent = "Saved to Google Drive ✓";
+  } else if(state === "error"){
+    btn.classList.remove("primary");
+    btn.classList.add("isError");
+    btn.textContent = "Drive Save Failed";
+  } else {
+    btn.textContent = "Save to Google Drive";
+  }
+}
+function isRowBasicallyEmpty(r){
+  return !clean(r.room) && !clean(r.w) && !clean(r.d);
+}
+function firstFabricName(){
+  return Object.keys(CW.fabrics).sort()[0] || "";
+}
+function makeRow({include=true}={}){
+  return {
+    include,
+    room:"",
+    w:"",
+    d:"",
+    qty:1,
+    fabric:firstFabricName(),
+    orient:"auto",
+    forceRailroad:false
+  };
+}
+function focusField(rowIndex, fieldClass){
+  CW._focus = {rowIndex, fieldClass};
+}
+function autoAddNextRowIfNeeded(currentIndex, focusNext=false, currentFieldClass=null, cursorPos=null){
+  if(currentIndex !== CW.rows.length - 1) return;
+  const r = CW.rows[currentIndex];
+  if(isRowBasicallyEmpty(r)) return;
+  CW.rows.push(makeRow({include:true}));
+  if(focusNext){
+    focusField(CW.rows.length - 1, "room");
+  } else if(currentFieldClass){
+    CW._focus = {
+      rowIndex: currentIndex,
+      fieldClass: currentFieldClass,
+      cursorPos: typeof cursorPos === "number" ? cursorPos : null
+    };
+  }
+  renderTable();
+}
+function ensureAtLeastOneRow(){
+  if(CW.rows.length === 0) CW.rows.push(makeRow({include:true}));
+}
+function jobHeaderLine(){
+  const ref=clean($("jobRef").value);
+  const name=clean($("custName").value);
+  const addr=clean($("custAddr").value);
+  const parts=[];
+  if(ref) parts.push(ref);
+  if(name) parts.push(name);
+  if(addr) parts.push(addr);
+  return parts.join(" • ");
+}
+window.addEventListener("error",(e)=>{
+  const box = $("jsError");
+  if(!box) return;
+  box.style.display = "block";
+  box.innerHTML = `<b>JavaScript error:</b><br>${escapeXML(e.message)}<br><span class="hint">Line ${e.lineno}:${e.colno}</span>`;
+});
+const CW_STORAGE_KEY = "cutwizard.jobs.v14_driveload";
+function getJobKey(){
+  const ref = clean($("jobRef").value);
+  const name = clean($("custName").value);
+  const addr = clean($("custAddr").value);
+  if(ref) return ref;
+  if(name || addr) return `${name} • ${addr}`.trim();
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}_${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}${String(now.getSeconds()).padStart(2,"0")}`;
+  return `JOB_${stamp}`;
+}
+function buildJobPayload(){
+  return {
+    version: 14,
+    savedAt: new Date().toISOString(),
+    job: {
+      ref: clean($("jobRef").value),
+      customer: clean($("custName").value),
+      address: clean($("custAddr").value)
+    },
+    rules: {
+      entryMode: $("entryMode").value,
+      deductW: safeInt($("deductW").value,31),
+      addD: safeInt($("addD").value,350),
+      defaultOrient: $("defaultOrient").value,
+      optimiseMode: $("optimiseMode").value
+    },
+    fabrics: CW.fabrics,
+    rows: CW.rows
+  };
+}
+function applyJobPayload(payload){
+  if(!payload || !payload.job || !payload.rules || !payload.fabrics || !payload.rows){
+    throw new Error("Invalid job file (missing sections).");
+  }
+  $("jobRef").value = payload.job.ref || "";
+  $("custName").value = payload.job.customer || "";
+  $("custAddr").value = payload.job.address || "";
+  $("entryMode").value = payload.rules.entryMode || "cut";
+  $("deductW").value = payload.rules.deductW ?? 31;
+  $("addD").value = payload.rules.addD ?? 350;
+  $("defaultOrient").value = payload.rules.defaultOrient || "normal";
+  $("optimiseMode").value = payload.rules.optimiseMode || "meterage";
+  CW.fabrics = payload.fabrics || {};
+  CW.rows = payload.rows || [];
+  CW.lastPlans = null;
+  for(const k of Object.keys(CW.fabrics)){
+    const f = CW.fabrics[k];
+    if(!Array.isArray(f.widths)) f.widths = [];
+    if(!f.inventory) f.inventory = {};
+  }
+  CW.rows.forEach(r=>{
+    if(typeof r.forceRailroad !== "boolean") r.forceRailroad = false;
+    if(!r.orient) r.orient = "auto";
+    if(typeof r.include !== "boolean") r.include = true;
+    if(!("qty" in r)) r.qty = 1;
+  });
+  renderFabricCfg();
+  ensureAtLeastOneRow();
+  if(CW.rows.length===1) CW.rows.push(makeRow({include:true}));
+  renderTable();
+  $("plansOut").innerHTML = "";
+  $("screenNotes").innerHTML = "";
+  setDriveButtonState("idle");
+  showMsg("ok", `Loaded job: <b>${escapeXML(getJobKey())}</b>`);
+  if(window.history && history.replaceState){
+    history.replaceState(null, '', location.pathname);
+  }
+}
+function newJob(){
+  const hasData =
+    clean($("jobRef").value) ||
+    clean($("custName").value) ||
+    clean($("custAddr").value) ||
+    CW.rows.some(r => !isRowBasicallyEmpty(r));
+  const doNew = () => {
+    $("jobRef").value = "";
+    $("custName").value = "";
+    $("custAddr").value = "";
+    CW.rows = [makeRow({include:true}), makeRow({include:true})];
+    CW.lastPlans = null;
+    CW._focus = null;
+    $("plansOut").innerHTML = "";
+    $("screenNotes").innerHTML = "";
+    setDriveButtonState("idle");
+    showMsg("ok", "Started a new job. Fabric list kept.");
+    renderTable();
+    focusField(0, "room");
+    renderTable();
+  };
+  if(hasData){
+    cwConfirm(
+      "Start a new job? This will clear the current customer details, window list, and current cut plans. Your fabric list will stay.",
+      doNew, null, "New Job", "Cancel"
+    );
+  } else {
+    doNew();
+  }
+}
+function loadAllSavedJobs(){
+  try{
+    const raw = localStorage.getItem(CW_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){
+    return {};
+  }
+}
+function saveAllSavedJobs(obj){
+  localStorage.setItem(CW_STORAGE_KEY, JSON.stringify(obj));
+}
+function renderJobLibrary(){
+  const out = $("jobLibraryOut");
+  if(!out) return;
+  const jobs = loadAllSavedJobs();
+  const keys = Object.keys(jobs).sort();
+  if(!keys.length){
+    out.innerHTML = `Saved jobs: <span class="pill">0</span>`;
+    return;
+  }
+  const show = keys.slice(-12).reverse();
+  out.innerHTML = `Saved jobs: <span class="pill">${keys.length}</span><br/>` +
+    show.map(k=>{
+      const j = jobs[k];
+      const when = j?.savedAt ? new Date(j.savedAt).toLocaleString() : "";
+      const who = j?.job?.customer ? ` • ${escapeXML(j.job.customer)}` : "";
+      return `• <b>${escapeXML(k)}</b>${who} <span class="pill">${escapeXML(when)}</span>`;
+    }).join("<br/>");
+}
+function saveJobLocal(){
+  const key = getJobKey();
+  const jobs = loadAllSavedJobs();
+  jobs[key] = buildJobPayload();
+  saveAllSavedJobs(jobs);
+  CW.lastPlans = null;
+  showMsg("ok", `Saved locally as: <b>${escapeXML(key)}</b>`);
+  renderJobLibrary();
+}
+function loadJobLocal(){
+  const jobs = loadAllSavedJobs();
+  const keys = Object.keys(jobs).sort();
+  if(!keys.length){
+    showMsg("err","No saved jobs in this browser yet.");
+    return;
+  }
+  cwPrompt("Select job to load:", keys[keys.length-1], keys.slice(-30).reverse(), (pick)=>{
+    if(!pick) return;
+    const payload = jobs[pick];
+    if(!payload){ showMsg("err", `Job not found: ${escapeXML(pick)}`); return; }
+    applyJobPayload(payload);
+    renderJobLibrary();
+  });
+}
+function deleteJobLocal(){
+  const jobs = loadAllSavedJobs();
+  const keys = Object.keys(jobs).sort();
+  if(!keys.length){
+    showMsg("err","No saved jobs to delete.");
+    return;
+  }
+  cwPrompt("Select job to DELETE:", "", keys.slice(-30).reverse(), (pick)=>{
+    if(!pick) return;
+    if(!jobs[pick]){ showMsg("err", `Job not found: ${escapeXML(pick)}`); return; }
+    cwConfirm(`Delete saved job "${pick}" from this browser?`, ()=>{
+      delete jobs[pick];
+      saveAllSavedJobs(jobs);
+      showMsg("ok", `Deleted: <b>${escapeXML(pick)}</b>`);
+      renderJobLibrary();
+    }, null, "Delete", "Cancel", true);
+  });
+}
+function downloadJobFile(){
+  const payload = buildJobPayload();
+  const key = getJobKey().replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"_") || "CutWizard_Job";
+  const filename = `${key}.cutwizard.json`;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showMsg("ok", `Downloaded: <b>${escapeXML(filename)}</b>`);
+}
+async function importJobFile(file){
+  try{
+    if(!file){
+      showMsg("err", "No job file selected.");
+      return;
+    }
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    if(!payload || !payload.job || !payload.rules || !payload.fabrics || !payload.rows){
+      showMsg("err", "That file is not a valid CutWizard job file.");
+      return;
+    }
+    applyJobPayload(payload);
+    renderJobLibrary();
+    setDriveButtonState("idle");
+    showMsg("ok", `Opened saved job: <b>${escapeXML(file.name)}</b>`);
+  }catch(err){
+    showMsg("err", `Open job failed: ${escapeXML(err.message || String(err))}`);
+  }
+}
+const DRIVE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw5_dFiNZ-w8zTxmiRyHCE-VsOGOkMp7QYpn-oKMx00YG3-BI3g0S1iGpcgjl673qfsfA/exec";
+async function saveToDrive(){
+  const payload = buildJobPayload();
+  try {
+    setDriveButtonState("saving");
+    showMsg("ok", "Saving to Google Drive...");
+    const res = await fetch(DRIVE_SCRIPT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(payload)
+    });
+    const text = await res.text();
+    let result = {};
+    try {
+      result = JSON.parse(text);
+    } catch(parseErr) {
+      setDriveButtonState("error");
+      showMsg("err", `Drive save failed: invalid response<br><span class="hint">${escapeXML(text)}</span>`);
+      return;
+    }
+    if(result.status === "saved"){
+      const safeFile = escapeXML(result.fileName || "file");
+      let fileId = "";
+      if(result.fileUrl){
+        const match = result.fileUrl.match(/\/d\/([a-zA-Z0-9_-]+)\//);
+        if(match) fileId = match[1];
+      }
+      const loadLink = fileId ? `<br><a class="msgLink" href="?fileId=${encodeURIComponent(fileId)}">Load in CutWizard</a>` : "";
+      const viewLink = result.fileUrl ? `<br><a class="msgLink" href="${result.fileUrl}" target="_blank" rel="noopener">View JSON in Drive</a>` : "";
+      setDriveButtonState("saved");
+      showMsg("ok", `Saved to Google Drive: <b>${safeFile}</b>${loadLink}${viewLink}`);
+    } else {
+      setDriveButtonState("error");
+      showMsg("err", `Drive save failed: ${escapeXML(result.message || "Unknown error")}`);
+    }
+  } catch(err) {
+    setDriveButtonState("error");
+    showMsg("err", `Drive save failed: ${escapeXML(String(err))}`);
+  }
+}
+// ── Drive job list state ──────────────────────────────────────────────────────
+const DL = { allFiles:[], filtered:[], pageSize:50, shown:0 };
+
+async function listDriveJobs(){
+  const panel = $("driveSearchPanel");
+  const list  = $("driveJobList");
+  const count = $("driveJobCount");
+  if(!panel) return;
+
+  // Show panel with loading state
+  panel.style.display = "block";
+  list.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:12px;">Fetching jobs from Drive…</div>`;
+  if(count) count.textContent = "";
+
+  try {
+    const res  = await fetch(`${DRIVE_SCRIPT_URL}?action=list`);
+    const text = await res.text();
+    let result = {};
+    try { result = JSON.parse(text); }
+    catch(e){
+      list.innerHTML = `<div style="padding:12px;color:#ffb3b3;font-size:12px;">Invalid response from Drive.</div>`;
+      return;
+    }
+    if(result.status !== "list"){
+      list.innerHTML = `<div style="padding:12px;color:#ffb3b3;font-size:12px;">${escapeXML(result.message||"List failed")}</div>`;
+      return;
+    }
+
+    // Store all files sorted newest first
+    DL.allFiles = (result.files || []).sort((a,b)=> new Date(b.savedAt) - new Date(a.savedAt));
+
+    // Wire up search input (only once)
+    const inp = $("driveSearchInput");
+    if(inp && !inp.dataset.wired){
+      inp.dataset.wired = "1";
+      inp.addEventListener("input", ()=> renderDriveList());
+      $("btnDriveSearchClear").addEventListener("click",()=>{ inp.value=""; renderDriveList(); inp.focus(); });
+      $("btnDriveShowMore").addEventListener("click",()=>{ DL.shown += DL.pageSize; renderDriveList(false); });
+    }
+
+    renderDriveList();
+
+  } catch(err){
+    list.innerHTML = `<div style="padding:12px;color:#ffb3b3;font-size:12px;">Drive list failed: ${escapeXML(String(err))}</div>`;
+  }
+}
+
+function renderDriveList(resetScroll=true){
+  const list     = $("driveJobList");
+  const count    = $("driveJobCount");
+  const moreWrap = $("driveShowMore");
+  const inp      = $("driveSearchInput");
+  if(!list) return;
+
+  const q = (inp ? inp.value : "").trim().toLowerCase();
+
+  // Filter by search term against filename, job ref, customer name
+  DL.filtered = q
+    ? DL.allFiles.filter(f => {
+        const n = (f.fileName||"").toLowerCase();
+        const r = (f.jobRef||"").toLowerCase();
+        const c = (f.customer||"").toLowerCase();
+        return n.includes(q) || r.includes(q) || c.includes(q);
+      })
+    : DL.allFiles.slice();
+
+  // Reset pagination on new search
+  if(resetScroll) DL.shown = DL.pageSize;
+
+  const visible = DL.filtered.slice(0, DL.shown);
+  const total   = DL.filtered.length;
+
+  if(count) count.textContent = q
+    ? `${total} match${total===1?"":"es"} of ${DL.allFiles.length}`
+    : `${DL.allFiles.length} job${DL.allFiles.length===1?"":"s"}`;
+
+  if(!total){
+    list.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:12px;">${q ? "No jobs match your search." : "No jobs saved yet."}</div>`;
+    if(moreWrap) moreWrap.style.display = "none";
+    return;
+  }
+
+  list.innerHTML = visible.map(f => {
+    const name = f.fileName || "Untitled";
+    // Parse a friendly display name: strip date suffix and extension
+    const display = name.replace(/\.cutwizard\.json$/,"").replace(/_\d{4}-\d{2}-\d{2}$/,"").replace(/_/g," ");
+    const when = f.savedAt ? new Date(f.savedAt).toLocaleString("en-AU",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
+    return `<div class="driveJobRow" data-id="${escapeXML(f.fileId)}">
+      <div>
+        <div class="driveJobName">${escapeXML(display)}</div>
+        <div class="driveJobMeta">${escapeXML(when)}</div>
+      </div>
+      <button class="ghost mini btnDriveLoad" data-id="${escapeXML(f.fileId)}" style="color:#63e6be;border-color:#1f5a3f;font-size:11px;">Load</button>
+      <button class="danger mini btnDelDriveFile" data-id="${escapeXML(f.fileId)}" style="font-size:11px;">Del</button>
+    </div>`;
+  }).join("");
+
+  // Wire load + delete buttons
+  list.querySelectorAll(".btnDriveLoad").forEach(btn =>
+    btn.addEventListener("click", ()=> loadDriveFile(btn.getAttribute("data-id")))
+  );
+  list.querySelectorAll(".btnDelDriveFile").forEach(btn =>
+    btn.addEventListener("click", ()=> deleteDriveFile(btn.getAttribute("data-id")))
+  );
+
+  // Show more button
+  if(moreWrap) moreWrap.style.display = (DL.shown < total) ? "block" : "none";
+  if(resetScroll && list.scrollTop) list.scrollTop = 0;
+}
+async function loadDriveFile(fileId){
+  if(!fileId) return showMsg("err", "No file ID.");
+  showMsg("ok", "Loading from Drive...");
+  try {
+    const res = await fetch(`${DRIVE_SCRIPT_URL}?action=load&fileId=${encodeURIComponent(fileId)}`);
+    const text = await res.text();
+    let result = {};
+    try {
+      result = JSON.parse(text);
+    } catch(e) {
+      showMsg("err", `Invalid response from Drive load.`);
+      return;
+    }
+    if(result.status !== "loaded" || !result.data){
+      showMsg("err", `Drive load failed: ${escapeXML(result.message || "Unknown")}`);
+      return;
+    }
+    applyJobPayload(result.data);
+    listDriveJobs();
+  } catch(err) {
+    showMsg("err", `Drive load failed: ${escapeXML(String(err))}`);
+  }
+}
+async function deleteDriveFile(fileId){
+  if(!fileId) return showMsg("err", "No file ID.");
+  cwConfirm("Delete this job from Google Drive?", ()=>_deleteDriveFileConfirmed(fileId), null, "Delete", "Cancel", true);
+  return;
+}
+async function _deleteDriveFileConfirmed(fileId){
+  showMsg("ok", "Deleting from Drive...");
+  try {
+    const res = await fetch(`${DRIVE_SCRIPT_URL}?action=delete&fileId=${encodeURIComponent(fileId)}`);
+    const text = await res.text();
+    let result = {};
+    try {
+      result = JSON.parse(text);
+    } catch(e) {
+      showMsg("err", `Invalid response from Drive delete.`);
+      return;
+    }
+    if(result.status !== "deleted"){
+      showMsg("err", `Drive delete failed: ${escapeXML(result.message || "Unknown")}`);
+      return;
+    }
+    showMsg("ok", "Deleted from Drive.");
+    listDriveJobs();
+  } catch(err) {
+    showMsg("err", `Drive delete failed: ${escapeXML(String(err))}`);
+  }
+}
+function parseWidthsCSV(s){
+  const raw = clean(s)
+    .replace(/;/g, ",")
+    .replace(/\s+/g, ",")
+    .replace(/,+/g, ",")
+    .split(",")
+    .map(t => t.trim())
+    .filter(Boolean);
+  const out = [];
+  for(const token of raw){
+    const hasM = /m/i.test(token);
+    const hasMM = /mm/i.test(token);
+    const numStr = token.replace(/[^0-9.]/g, "");
+    if(!numStr) continue;
+    const num = Number(numStr);
+    if(!Number.isFinite(num) || num <= 0) continue;
+    let mm;
+    if(hasMM) mm = Math.round(num);
+    else if(hasM || num < 20 || numStr.includes(".")) mm = Math.round(num * 1000);
+    else mm = Math.round(num);
+    if(mm > 0) out.push(mm);
+  }
+  return Array.from(new Set(out)).sort((a,b)=>a-b);
+}
+function renderBulkFabricDropdown(){
+  const sel = $("selectFabricBulk");
+  const names = Object.keys(CW.fabrics).sort();
+  sel.innerHTML = names.length
+    ? names.map(n=>`<option value="${escapeXML(n)}">${escapeXML(n)}</option>`).join("")
+    : `<option value="">(no fabrics)</option>`;
+}
+function fabricSettingsHTML(){
+  const names = Object.keys(CW.fabrics).sort();
+  if(!names.length) return "";
+  return `<div class="divider"></div>
+    <h2>Fabric inventory (per width)</h2>
+    <div class="hint">Enter available length (mm) for each roll width you have. Leave blank/0 if none. If all are 0, the optimiser treats rolls as unlimited.</div>
+    ${names.map(n=>{
+      const f = CW.fabrics[n];
+      const inv = f.inventory || {};
+      return `
+        <div style="margin-top:10px">
+          <div class="pill"><b>${escapeXML(n)}</b></div>
+          <div class="invGrid">
+            ${(f.widths||[]).map(w=>{
+              const val = safeInt(inv[w] ?? 20000, 20000);
+              return `
+                <div class="invRow">
+                  <div>
+                    <div class="lbl">${w}mm</div>
+                    <div class="sub">${(w/1000).toFixed(1)}m roll</div>
+                  </div>
+                  <div class="sub">Available length (mm)</div>
+                  <div>
+                    <input data-fab="${escapeXML(n)}" data-w="${w}" type="number" min="0" placeholder="20000" value="${escapeXML(String(val))}"/>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `;
+    }).join("")}`;
+}
+function wireFabricSettings(){
+  const box = $("fabSettingsBox");
+  box.innerHTML = fabricSettingsHTML();
+  box.querySelectorAll("input[data-fab][data-w]").forEach(inp=>{
+    inp.addEventListener("input",()=>{
+      const fab = inp.getAttribute("data-fab");
+      const w = safeInt(inp.getAttribute("data-w"),0);
+      if(!CW.fabrics[fab]) return;
+      if(!CW.fabrics[fab].inventory) CW.fabrics[fab].inventory = {};
+      CW.fabrics[fab].inventory[w] = Math.max(0, safeInt(inp.value,0));
+    });
+  });
+}
+function renderFabricCfg(){
+  const out = $("fabricCfgOut");
+  const names = Object.keys(CW.fabrics).sort();
+  out.innerHTML = names.length
+    ? names.map(n=>{
+        const f = CW.fabrics[n];
+        const inv = f.inventory || {};
+        const widths = f.widths || [];
+        const invTxt = widths.map(w=>{
+          const mm = safeInt(inv[w] ?? 20000, 20000);
+          return `${w}:${mm}mm`;
+        }).join(" • ");
+        return `• <b>${escapeXML(n)}</b> widths: ${widths.join(", ")} mm<br/><span class="hint">Inventory: ${escapeXML(invTxt)}</span>`;
+      }).join("<br/>")
+    : `<span style="color:var(--muted)">No fabrics yet. Add at least one fabric.</span>`;
+  renderBulkFabricDropdown();
+  wireFabricSettings();
+  renderTable();
+}
+function addOrUpdateFabric(){
+  const name = clean($("fabName").value);
+  const newWidths = parseWidthsCSV($("fabWidths").value);
+  if(!name) return showMsg("err","Please enter a fabric name.");
+  if(!newWidths.length) return showMsg("err","Please enter roll widths, e.g. 2000,2500,3000 or 2m 2.5m 3m.");
+
+  const prev    = CW.fabrics[name];
+  const prevInv = (prev && prev.inventory) ? prev.inventory : {};
+
+  // MERGE: combine any previously saved widths with the new ones.
+  // This means entering 2000 first, then 2500,3000 later adds all three —
+  // it does NOT wipe widths that were already saved.
+  const prevWidths  = (prev && prev.widths) ? prev.widths : [];
+  const mergedWidths = Array.from(new Set([...prevWidths, ...newWidths])).sort((a,b)=>a-b);
+
+  const inventory = {};
+  mergedWidths.forEach(w => inventory[w] = safeInt(prevInv[w] ?? 20000, 20000));
+  CW.fabrics[name] = { widths: mergedWidths, inventory };
+
+  const firstFab = firstFabricName() || name;
+  CW.rows.forEach(r=>{
+    if(!r.fabric || !CW.fabrics[r.fabric]) r.fabric = firstFab;
+  });
+
+  const isUpdate  = prev && prevWidths.length > 0;
+  const addedList = newWidths.filter(w => !prevWidths.includes(w));
+  const keptList  = newWidths.filter(w =>  prevWidths.includes(w));
+  let msg = isUpdate
+    ? `Updated fabric: <b>${escapeXML(name)}</b>`
+    : `Added fabric: <b>${escapeXML(name)}</b>`;
+  if(addedList.length) msg += ` — added widths: ${addedList.join(", ")}mm`;
+  if(keptList.length)  msg += ` — widths already existed: ${keptList.join(", ")}mm`;
+  msg += `. All widths now: <b>${mergedWidths.join(", ")}mm</b>.`;
+
+  showMsg("ok", msg);
+  $("fabName").value = "";
+  $("fabWidths").value = "";
+  renderFabricCfg();
+}
+function deleteFabric(){
+  const names = Object.keys(CW.fabrics).sort();
+  if(!names.length){
+    showMsg("err","No fabrics to delete.");
+    return;
+  }
+  cwPrompt("Select fabric to delete:", names[names.length-1], names, (pick)=>{
+    if(!pick) return;
+    if(!CW.fabrics[pick]){ showMsg("err", `Fabric not found: <b>${escapeXML(pick)}</b>`); return; }
+    const usedCount = CW.rows.filter(r=>r.fabric===pick).length;
+    const warn = usedCount ? `
+
+WARNING: ${usedCount} row(s) use this fabric and will be reassigned.` : "";
+    cwConfirm(`Delete fabric "${pick}"?${warn}`, ()=>{
+      delete CW.fabrics[pick];
+      const fallback = firstFabricName();
+      CW.rows.forEach(r=>{ if(r.fabric===pick) r.fabric = fallback || ""; });
+      CW.lastPlans = null;
+      showMsg("ok", `Deleted fabric: <b>${escapeXML(pick)}</b>`);
+      renderFabricCfg();
+    }, null, "Delete", "Cancel", true);
+  });
+}
+function fabricOptionsHTML(selected){
+  const names = Object.keys(CW.fabrics).sort();
+  if(!names.length) return `<option value="">(add fabrics first)</option>`;
+  return names.map(n=>`<option value="${escapeXML(n)}" ${n===selected?"selected":""}>${escapeXML(n)}</option>`).join("");
+}
+function cutSizeFromEntry(w, d){
+  const mode = $("entryMode").value;
+  if(mode === "cut") return {cutW:w, cutD:d};
+  const deductW = safeInt($("deductW").value,31);
+  const addD = safeInt($("addD").value,350);
+  return {cutW: w - deductW, cutD: d + addD};
+}
+function resolveRowOrient(row){
+  if(row.forceRailroad) return "railroad";
+  if(row.orient && row.orient !== "auto") return row.orient;
+  return $("defaultOrient").value;
+}
+function renderTable(){
+  const out = $("tableOut");
+  ensureAtLeastOneRow();
+  const hasFabs = Object.keys(CW.fabrics).length > 0;
+  const warn = hasFabs ? "" : `<div class="errBox">Add at least one fabric, then select it per row.</div>`;
+  out.innerHTML = `${warn}
+    <table>
+      <thead>
+        <tr>
+          <th class="w60">#</th>
+          <th class="w80">Include</th>
+          <th class="w220">Room / Window</th>
+          <th class="w110">${$("entryMode").value==="cut" ? "Cut W" : "Width"} (mm)</th>
+          <th class="w110">${$("entryMode").value==="cut" ? "Cut D" : "Drop"} (mm)</th>
+          <th class="w80">Qty</th>
+          <th class="w180">Fabric</th>
+          <th class="w90">Railroad?</th>
+          <th class="w140">Orientation</th>
+          <th>Cut size (used)</th>
+          <th class="w140">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${CW.rows.map((r,i)=>{
+          const wNum = safeInt(r.w,0), dNum = safeInt(r.d,0);
+          const {cutW, cutD} = (wNum>0 && dNum>0) ? cutSizeFromEntry(wNum,dNum) : {cutW:0, cutD:0};
+          const cutTxt = (wNum>0 && dNum>0) ? `${cutW} × ${cutD} mm` : "—";
+          const orient = r.orient || "auto";
+          const forced = !!r.forceRailroad;
+          const readyCls = (i===CW.rows.length-1 && isRowBasicallyEmpty(r)) ? "readyRow" : "";
+          return `
+            <tr data-i="${i}" class="${readyCls}">
+              <td><b>${i+1}</b></td>
+              <td style="text-align:center"><input class="chk rowInclude" type="checkbox" ${r.include?"checked":""}/></td>
+              <td><input class="mini room" value="${escapeXML(r.room||"")}" placeholder="e.g. Bed 1 – Left"/></td>
+              <td><input class="mini w" inputmode="numeric" value="${escapeXML(r.w ?? "")}" placeholder="mm"/></td>
+              <td><input class="mini d" inputmode="numeric" value="${escapeXML(r.d ?? "")}" placeholder="mm"/></td>
+              <td><input class="mini qty" type="number" value="${Math.max(1,safeInt(r.qty,1))}" min="1"/></td>
+              <td><select class="mini fabric" ${hasFabs?"":"disabled"}>${fabricOptionsHTML(r.fabric)}</select></td>
+              <td style="text-align:center"><input class="chk forceRR" type="checkbox" ${forced?"checked":""} title="Force railroad for this window"/></td>
+              <td>
+                <select class="mini orientSel" ${forced?"disabled":""}>
+                  <option value="auto" ${orient==="auto"?"selected":""}>Auto</option>
+                  <option value="normal" ${orient==="normal"?"selected":""}>Normal</option>
+                  <option value="railroad" ${orient==="railroad"?"selected":""}>Railroad</option>
+                </select>
+              </td>
+              <td class="cutCell">${cutTxt}</td>
+              <td>
+                <button type="button" class="mini btnDup">Dup</button>
+                <button type="button" class="mini btnDel">Del</button>
+              </td>
+            </tr>
+          `;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+  out.querySelectorAll("tbody tr").forEach(tr=>{
+    const i = parseInt(tr.getAttribute("data-i"),10);
+    const r = CW.rows[i];
+    const cutCell = tr.querySelector(".cutCell");
+    const roomInput = tr.querySelector(".room");
+    const wInput = tr.querySelector(".w");
+    const dInput = tr.querySelector(".d");
+    function updateCutCell(){
+      const wNum = safeInt(r.w,0), dNum = safeInt(r.d,0);
+      if(!(wNum>0 && dNum>0)){ cutCell.textContent="—"; return; }
+      const {cutW, cutD} = cutSizeFromEntry(wNum,dNum);
+      cutCell.textContent = `${cutW} × ${cutD} mm`;
+    }
+    tr.querySelector(".rowInclude").addEventListener("change",e=>{ r.include = !!e.target.checked; });
+    roomInput.addEventListener("input",(e)=>{
+      r.room = e.target.value;
+      if(clean(r.room).length === 1){
+        autoAddNextRowIfNeeded(i, false, "room", e.target.selectionStart);
+      }
+    });
+    wInput.addEventListener("input",(e)=>{
+      r.w = e.target.value;
+      updateCutCell();
+      if(clean(String(r.w)).length === 1){
+        autoAddNextRowIfNeeded(i, false, "w", e.target.selectionStart);
+      }
+    });
+    dInput.addEventListener("input",(e)=>{
+      r.d = e.target.value;
+      updateCutCell();
+      if(clean(String(r.d)).length === 1){
+        autoAddNextRowIfNeeded(i, false, "d", e.target.selectionStart);
+      }
+    });
+    wInput.addEventListener("blur",()=>{ r.w = (safeInt(r.w,0)||""); wInput.value = r.w; updateCutCell(); });
+    dInput.addEventListener("blur",()=>{ r.d = (safeInt(r.d,0)||""); dInput.value = r.d; updateCutCell(); });
+    roomInput.addEventListener("keydown",(e)=>{
+      if(e.key==="Enter"){
+        e.preventDefault();
+        wInput.focus();
+        wInput.select?.();
+      }
+    });
+    wInput.addEventListener("keydown",(e)=>{
+      if(e.key==="Enter"){
+        e.preventDefault();
+        dInput.focus();
+        dInput.select?.();
+      }
+    });
+    dInput.addEventListener("keydown",(e)=>{
+      if(e.key==="Enter"){
+        e.preventDefault();
+        const isLast = (i===CW.rows.length-1);
+        if(isLast && !isRowBasicallyEmpty(r)){
+          autoAddNextRowIfNeeded(i,true);
+          return;
+        }
+        focusField(Math.min(i+1,CW.rows.length-1),"room");
+        renderTable();
+      }
+    });
+    tr.querySelector(".qty").addEventListener("input",e=>{ r.qty = Math.max(1,safeInt(e.target.value,1)); });
+    const fabricSel = tr.querySelector(".fabric");
+    if(fabricSel){
+      const setFab=()=>{ r.fabric = String(fabricSel.value||"").trim(); };
+      fabricSel.addEventListener("change",setFab);
+      setFab();
+    }
+    const forceRR = tr.querySelector(".forceRR");
+    const orientSel = tr.querySelector(".orientSel");
+    forceRR.addEventListener("change",()=>{
+      r.forceRailroad = !!forceRR.checked;
+      renderTable();
+    });
+    orientSel.addEventListener("change",()=>{ r.orient = String(orientSel.value||"auto"); });
+    const btnDup = tr.querySelector(".btnDup");
+    const btnDel = tr.querySelector(".btnDel");
+    btnDup.addEventListener("click",()=>{
+      CW.rows.splice(i+1, 0, JSON.parse(JSON.stringify(r)));
+      renderTable();
+    });
+    btnDel.addEventListener("click",()=>{
+      CW.rows.splice(i, 1);
+      ensureAtLeastOneRow();
+      renderTable();
+    });
+  });
+  if(CW._focus){
+    const {rowIndex, fieldClass, cursorPos} = CW._focus;
+    CW._focus = null;
+    const el = out.querySelector(`tbody tr[data-i="${rowIndex}"] .${fieldClass}`);
+    if(el){
+      el.focus();
+      if(typeof cursorPos === "number" && el.setSelectionRange){
+        el.setSelectionRange(cursorPos, cursorPos);
+      } else {
+        el.select?.();
+      }
+    }
+  }
+}
+function buildPieces(){
+  const errs=[], pieces=[];
+  if(!Object.keys(CW.fabrics).length){
+    errs.push("No fabrics added yet. Add a fabric first.");
+    return {pieces, errs};
+  }
+  let needsRR = [];
+  CW.rows.forEach((r,idx)=>{
+    if(resolveRowOrient(r) === "normal"){
+      const f = CW.fabrics[r.fabric];
+      if(f){
+        const maxW = Math.max(...(f.widths || []));
+        const {cutW} = cutSizeFromEntry(safeInt(r.w,0), safeInt(r.d,0));
+        if(cutW > maxW){
+          needsRR.push({idx, room: r.room || `Row ${idx+1}`, cutW, maxW});
+        }
+      }
+    }
+  });
+  if(needsRR.length){
+    let msg = "The following blinds exceed max roll width and may need railroading or splitting:\n" + needsRR.map(n=>`${n.room}: ${n.cutW} > ${n.maxW}mm`).join("\n");
+    msg += "\nForce railroad for them?";
+    cwConfirm(msg, ()=>{
+      needsRR.forEach(n=> CW.rows[n.idx].forceRailroad = true);
+      renderTable();
+    }, null, "Force Railroad", "Review Manually");
+  }
+  CW.rows.forEach((r,idx)=>{
+    if(!r.include) return;
+    if(isRowBasicallyEmpty(r)) return;
+    const w = safeInt(r.w,0), d = safeInt(r.d,0);
+    if(!(w>0 && d>0)){
+      errs.push(`Row ${idx+1}: width x drop missing (or incomplete).`);
+      return;
+    }
+    if(!r.fabric || !CW.fabrics[r.fabric]){
+      errs.push(`Row ${idx+1}: Fabric not set / unknown.`);
+      return;
+    }
+    const mode = $("entryMode").value;
+    const deductW = safeInt($("deductW").value,31);
+    const addD = safeInt($("addD").value,350);
+    const cutW = (mode==="cut") ? w : (w - deductW);
+    const cutD = (mode==="cut") ? d : (d + addD);
+    if(cutW<=0 || cutD<=0){
+      errs.push(`Row ${idx+1}: cut size invalid.`);
+      return;
+    }
+    const qty = Math.max(1,safeInt(r.qty,1));
+    const orient = resolveRowOrient(r);
+    for(let q=0;q<qty;q++){
+      pieces.push({
+        room: clean(r.room) || `Row ${idx+1}`,
+        blindNum: idx+1,
+        qtyLabel: qty > 1 ? `${q+1}/${qty}` : "",
+        fabric: r.fabric,
+        cutW,
+        cutD,
+        orient
+      });
+    }
+  });
+  if(!pieces.length) errs.push("No blinds selected.");
+  return {pieces, errs};
+}
+function buildRowsForWidthMixed(pieces, rollW){
+  const sorted = pieces.slice().sort((a,b)=>{
+    if(b.pieceD !== a.pieceD) return b.pieceD - a.pieceD;
+    return b.pieceW - a.pieceW;
+  });
+  const rows = [];
+  for(const p of sorted){
+    let bestRowIndex = -1;
+    let bestLeftover = Infinity;
+    for(let i=0;i<rows.length;i++){
+      const row = rows[i];
+      if(row.usedW + p.pieceW <= rollW){
+        const leftover = rollW - (row.usedW + p.pieceW);
+        if(leftover < bestLeftover){
+          bestLeftover = leftover;
+          bestRowIndex = i;
+        }
+      }
+    }
+    if(bestRowIndex >= 0){
+      rows[bestRowIndex].items.push(p);
+      rows[bestRowIndex].usedW += p.pieceW;
+      rows[bestRowIndex].drop = Math.max(rows[bestRowIndex].drop, p.pieceD);
+      rowSortItems(rows[bestRowIndex]);
+    } else {
+      rows.push({
+        drop: p.pieceD,
+        usedW: p.pieceW,
+        items: [p]
+      });
+    }
+  }
+  return rows.sort((a,b)=> (b.drop - a.drop) || (b.usedW - a.usedW));
+}
+function rowSortItems(row){
+  row.items.sort((a,b)=>{
+    if(b.pieceD !== a.pieceD) return b.pieceD - a.pieceD;
+    return b.pieceW - a.pieceW;
+  });
+}
+function applyAvailabilityLimit(rows, availLenMm){
+  if(!(availLenMm>0)){
+    return {
+      rowsCut: rows,
+      rowsMiss: [],
+      usedLenMm: sum(rows.map(r=>r.drop))
+    };
+  }
+  rows = rows.slice().sort((a,b)=>b.drop - a.drop);
+  let used = 0;
+  const rowsCut = [];
+  const rowsMiss = [];
+  for(const row of rows){
+    if(used + row.drop <= availLenMm){
+      rowsCut.push(row);
+      used += row.drop;
+    }else{
+      rowsMiss.push(row);
+    }
+  }
+  return {rowsCut, rowsMiss, usedLenMm: used};
+}
+function scoreRows(rows, rollW, mode){
+  const len = sum(rows.map(r=>r.drop));
+  const wasteArea = sum(rows.map(r => (rollW - r.usedW) * r.drop));
+  const wasteLenEquivalent = wasteArea / Math.max(1, rollW);
+  if(mode === "meterage"){
+    return {score: len, len, wasteArea, wasteLenEquivalent};
+  }
+  if(mode === "waste"){
+    return {score: wasteLenEquivalent * 1000 + len * 0.05, len, wasteArea, wasteLenEquivalent};
+  }
+  return {score: len + wasteLenEquivalent * 0.35, len, wasteArea, wasteLenEquivalent};
+}
+function allocateByDropBestWidth(pieces, widths, mode){
+  const maxPW = Math.max(...pieces.map(p=>p.pieceW));
+  let best = null;
+  for(const w of widths){
+    if(w < maxPW) continue;
+    const rows = buildRowsForWidthMixed(pieces, w);
+    const sc = scoreRows(rows, w, mode);
+    if(!best || sc.score < best.sc.score){
+      best = { w, rows, sc };
+    }
+  }
+  if(!best){
+    return {
+      ok:false,
+      err:`Cannot fit pieces: needs piece width ${maxPW}mm but no roll is wide enough.`
+    };
+  }
+  const rowsByW = new Map();
+  rowsByW.set(best.w, best.rows);
+  const statsByW = new Map();
+  statsByW.set(best.w, {
+    len: best.sc.len,
+    wasteArea: best.sc.wasteArea
+  });
+  return { ok:true, rowsByW, statsByW };
+}
+function compactPlansToNarrowestWidth(planItems, allWidths, inventoryByWidth){
+  const rows = [];
+  for(const p of planItems){
+    for(const row of (p.rows || [])){
+      rows.push({
+        fabric: p.fabric,
+        orient: p.orient,
+        railroad: p.railroad,
+        row
+      });
+    }
+  }
+  const remaining = {};
+  for(const w of allWidths){
+    remaining[w] = Math.max(0, safeInt(inventoryByWidth[w] ?? 0, 0));
+  }
+  rows.sort((a,b)=>{
+    const aNeedW = a.row.usedW || Math.max(...a.row.items.map(x=>x.pieceW));
+    const bNeedW = b.row.usedW || Math.max(...b.row.items.map(x=>x.pieceW));
+    if(bNeedW !== aNeedW) return bNeedW - aNeedW;
+    return b.row.drop - a.row.drop;
+  });
+  const stockPlans = new Map();
+  const orderPlans = new Map();
+  function addRowToPlan(map, rec, w){
+    const key = `${rec.fabric}|||${rec.orient}|||${w}`;
+    if(!map.has(key)){
+      map.set(key, {
+        fabric: rec.fabric,
+        orient: rec.orient,
+        railroad: rec.railroad,
+        rollW: w,
+        rows: [],
+        requiredLenMm: 0,
+        usedLenMm: 0,
+        availLenMm: 0,
+        offcutLenMm: 0,
+        wasteAreaMm2: 0
+      });
+    }
+    map.get(key).rows.push(rec.row);
+  }
+  for(const rec of rows){
+    const neededW = rec.row.usedW || Math.max(...rec.row.items.map(x=>x.pieceW));
+    const neededLen = rec.row.drop;
+    const fittingWidths = allWidths.filter(w => w >= neededW).sort((a,b)=>a-b);
+    let placed = false;
+    for(const w of fittingWidths){
+      if((remaining[w] || 0) >= neededLen){
+        remaining[w] -= neededLen;
+        addRowToPlan(stockPlans, rec, w);
+        placed = true;
+        break;
+      }
+    }
+    if(!placed && fittingWidths.length){
+      addRowToPlan(orderPlans, rec, fittingWidths[0]);
+    }
+  }
+  const out = [];
+  for(const p of stockPlans.values()){
+    p.rows.sort((a,b)=> (b.drop-a.drop) || ((b.usedW||0)-(a.usedW||0)));
+    p.requiredLenMm = sum(p.rows.map(r=>r.drop));
+    p.usedLenMm = p.requiredLenMm;
+    p.availLenMm = Math.max(0, safeInt(inventoryByWidth[p.rollW] ?? 0, 0));
+    p.offcutLenMm = Math.max(0, p.availLenMm - p.usedLenMm);
+    p.wasteAreaMm2 = sum(p.rows.map(r => (p.rollW - (r.usedW||0)) * r.drop));
+    out.push(p);
+  }
+  for(const p of orderPlans.values()){
+    p.rows.sort((a,b)=> (b.drop-a.drop) || ((b.usedW||0)-(a.usedW||0)));
+    p.requiredLenMm = sum(p.rows.map(r=>r.drop));
+    p.usedLenMm = p.requiredLenMm;
+    p.availLenMm = 0;
+    p.offcutLenMm = 0;
+    p.wasteAreaMm2 = sum(p.rows.map(r => (p.rollW - (r.usedW||0)) * r.drop));
+    out.push(p);
+  }
+  return out.sort((a,b)=>a.rollW - b.rollW);
+}
+function planCutsMultiWidth(pieces){
+  const mode = $("optimiseMode").value || "meterage";
+  const byFabricOrient = new Map();
+  for(const p of pieces){
+    const key = `${p.fabric}|||${p.orient}`;
+    if(!byFabricOrient.has(key)) byFabricOrient.set(key, []);
+    byFabricOrient.get(key).push(p);
+  }
+  const plans = [];
+  const errs = [];
+  for(const [key, list] of byFabricOrient.entries()){
+    const [fabric, orient] = key.split("|||");
+    const fcfg = CW.fabrics[fabric];
+    if(!fcfg){
+      errs.push(`Unknown fabric: ${fabric}`);
+      continue;
+    }
+    const railroad = (orient === "railroad");
+    const widths = (fcfg.widths || []).slice().sort((a,b)=>b-a);
+    const inv = fcfg.inventory || {};
+    const orientedAll = list.map(p=>({
+      ...p,
+      pieceW: railroad ? p.cutD : p.cutW,
+      pieceD: railroad ? p.cutW : p.cutD
+    }));
+    const maxW = widths[0] || 0;
+    for(const p of orientedAll){
+      if(p.pieceW > maxW){
+        errs.push(`Cannot fit: ${fabric} (${orient}) piece width ${p.pieceW}mm exceeds max roll ${maxW}mm. (${p.room} ${p.cutW}×${p.cutD})`);
+      }
+    }
+    if(errs.length) continue;
+    const anyAvail = widths.some(w => safeInt(inv[w] ?? 0, 0) > 0);
+    if(!anyAvail){
+      const alloc = allocateByDropBestWidth(orientedAll, widths, mode);
+      if(!alloc.ok){
+        errs.push(`${fabric} (${orient}): ${alloc.err}`);
+        continue;
+      }
+      for(const [w, rows] of alloc.rowsByW.entries()){
+        const requiredLenMm = sum(rows.map(r=>r.drop));
+        const wasteArea = sum(rows.map(r => (w - r.usedW) * r.drop));
+        plans.push({
+          fabric, orient, railroad, rollW:w,
+          rows,
+          requiredLenMm,
+          usedLenMm: requiredLenMm,
+          availLenMm: 0,
+          offcutLenMm: 0,
+          wasteAreaMm2: wasteArea
+        });
+      }
+      continue;
+    }
+    const remainingAvail = {};
+    widths.forEach(w => remainingAvail[w] = Math.max(0, safeInt(inv[w] ?? 0, 0)));
+    let remainingPieces = orientedAll.slice();
+    for(const w of widths){
+      if(remainingPieces.length === 0) break;
+      const rows = buildRowsForWidthMixed(remainingPieces, w);
+      const availLenMm = remainingAvail[w] || 0;
+      const {rowsCut, rowsMiss, usedLenMm} = applyAvailabilityLimit(rows, availLenMm);
+      if(rowsCut.length){
+        remainingAvail[w] = Math.max(0, availLenMm - usedLenMm);
+        const wasteArea = sum(rowsCut.map(r => (w - r.usedW) * r.drop));
+        plans.push({
+          fabric, orient, railroad, rollW:w,
+          rows: rowsCut,
+          requiredLenMm: sum(rows.map(r=>r.drop)),
+          usedLenMm,
+          availLenMm,
+          offcutLenMm: Math.max(0, availLenMm - usedLenMm),
+          wasteAreaMm2: wasteArea
+        });
+      }
+      remainingPieces = rowsMiss.flatMap(r=>r.items);
+    }
+    if(remainingPieces.length){
+      const re2 = allocateByDropBestWidth(remainingPieces, widths, mode);
+      if(!re2.ok){
+        errs.push(`${fabric} (${orient}): cannot allocate remaining pieces for ordering (${re2.err})`);
+      }else{
+        for(const [w, rows] of re2.rowsByW.entries()){
+          const requiredLenMm = sum(rows.map(r=>r.drop));
+          const wasteArea = sum(rows.map(r => (w - r.usedW) * r.drop));
+          plans.push({
+            fabric, orient, railroad, rollW:w,
+            rows,
+            requiredLenMm,
+            usedLenMm: requiredLenMm,
+            availLenMm: 0,
+            offcutLenMm: 0,
+            wasteAreaMm2: wasteArea
+          });
+        }
+      }
+    }
+  }
+  const merged = new Map();
+  for(const p of plans){
+    const k = `${p.fabric}|||${p.orient}|||${p.rollW}|||${p.availLenMm>0 ? "stock" : "order"}`;
+    if(!merged.has(k)){
+      merged.set(k, {...p, rows: p.rows.slice()});
+    }else{
+      const m = merged.get(k);
+      m.rows.push(...p.rows);
+      m.rows.sort((a,b)=> (b.drop-a.drop) || (b.usedW - a.usedW));
+      m.requiredLenMm = sum(m.rows.map(r=>r.drop));
+      m.usedLenMm = m.requiredLenMm;
+      if(m.availLenMm > 0){
+        m.offcutLenMm = Math.max(0, m.availLenMm - m.usedLenMm);
+      }
+      m.wasteAreaMm2 = sum(m.rows.map(r => (m.rollW - r.usedW) * r.drop));
+    }
+  }
+  let outPlans = Array.from(merged.values())
+    .filter(p=>p.rows && p.rows.length)
+    .sort((a,b)=>(
+      a.fabric.localeCompare(b.fabric) ||
+      a.orient.localeCompare(b.orient) ||
+      a.rollW - b.rollW ||
+      (a.availLenMm>0 ? -1 : 1)
+    ));
+  const regroup = new Map();
+  for(const p of outPlans){
+    const k = `${p.fabric}|||${p.orient}`;
+    if(!regroup.has(k)) regroup.set(k, []);
+    regroup.get(k).push(p);
+  }
+  const compacted = [];
+  for(const [k, group] of regroup.entries()){
+    const [fabric] = k.split("|||");
+    const widths = (CW.fabrics[fabric]?.widths || []).slice().sort((a,b)=>a-b);
+    const inv = CW.fabrics[fabric]?.inventory || {};
+    const fixed = compactPlansToNarrowestWidth(group, widths, inv);
+    compacted.push(...fixed);
+  }
+  outPlans = compacted.sort((a,b)=>(
+    a.fabric.localeCompare(b.fabric) ||
+    a.orient.localeCompare(b.orient) ||
+    a.rollW - b.rollW
+  ));
+  return {plans: outPlans, errs};
+}
+
+// ─── makePlanSVG v3: blind#, waste shade, row-drop labels, timestamp, page# ──
+function makePlanSVG(plan, planIndex, totalPlans){
+  const pageW = 190;
+  const pageH = 277;
+  const pad = 8;
+  const headerH = 28;
+  const footerH = 6;
+  const leftLabelMargin = 18;
+  const usedLenMm = Math.max(0, plan.usedLenMm || 0);
+  const effectiveLen = usedLenMm > 0 ? usedLenMm : 1;
+  const drawW = pageW - pad*2 - leftLabelMargin;
+  const drawH = pageH - pad*2 - headerH - footerH;
+  const sx = drawW / plan.rollW;
+  const sy = drawH / effectiveLen;
+  const s = Math.min(sx, sy);
+  const x0 = pad + leftLabelMargin;
+  let y = pad + headerH;
+
+  const requiredLenMm = plan.requiredLenMm ?? usedLenMm;
+  const reqTxt   = `${mFromMm(requiredLenMm)}m req`;
+  const usedTxt  = `${mFromMm(usedLenMm)}m used`;
+  const availTxt = (plan.availLenMm > 0) ? `${mFromMm(plan.availLenMm)}m avail` : `order`;
+  const offTxt   = (plan.availLenMm > 0) ? `${mFromMm(plan.offcutLenMm || 0)}m offcut` : `offcut —`;
+  const wasteM2  = (plan.wasteAreaMm2 || 0) / 1e6;
+  const wasteTxt = `waste ${wasteM2.toFixed(3)}m²`;
+  const usageLine = `${reqTxt} • ${usedTxt} • ${availTxt} • ${offTxt} • ${wasteTxt}`;
+  const now = new Date();
+  const printStamp = `Printed ${now.toLocaleDateString("en-AU",{day:"2-digit",month:"short",year:"numeric"})} ${now.toLocaleTimeString("en-AU",{hour:"2-digit",minute:"2-digit"})}`;
+  const pageNum = (typeof planIndex === "number") ? `Sheet ${planIndex+1} of ${totalPlans}` : "";
+
+  const rects  = [];
+  const labels = [];
+  const defs   = [];
+  let pieceId  = 0;
+
+  for(const row of plan.rows){
+    const rowH  = row.drop * s;
+    // Grey background for full roll-width row
+    rects.push(`<rect x="${x0}" y="${y}" width="${plan.rollW*s}" height="${rowH}" fill="#f0f0f0" stroke="#cccccc"/>`);
+
+    // IMPROVEMENT #3: hatch the waste strip to the right of used blinds
+    const wasteX = x0 + row.usedW * s;
+    const wasteW = (plan.rollW - row.usedW) * s;
+    if(wasteW > 0.5){
+      const patId = `wp_${pieceId}_${Math.round(y*10)}`;
+      defs.push(`<pattern id="${patId}" patternUnits="userSpaceOnUse" width="4" height="4"><path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" stroke="#bbb" stroke-width="0.9" opacity="0.8"/></pattern>`);
+      rects.push(`<rect x="${wasteX}" y="${y}" width="${wasteW}" height="${rowH}" fill="url(#${patId})" stroke="#cccccc"/>`);
+      if(wasteW > 8){
+        const wfs = Math.max(1.5, Math.min(2.4, wasteW * 0.12));
+        labels.push(`<text x="${wasteX + wasteW/2}" y="${y + rowH/2}" text-anchor="middle" dominant-baseline="middle" font-size="${wfs}" fill="#aaa" style="font-family:Arial,sans-serif;">${escapeXML(`${plan.rollW - row.usedW}mm waste`)}</text>`);
+      }
+    }
+
+    // IMPROVEMENT #4: per-row drop label on left axis with tick marks
+    labels.push(`<text x="${x0-1}" y="${y + rowH/2}" text-anchor="end" dominant-baseline="middle" font-size="2.4" fill="#555" style="font-family:Arial,sans-serif;">${escapeXML(`${row.drop}mm`)}</text>`);
+    labels.push(`<line x1="${x0-3}" y1="${y}" x2="${x0}" y2="${y}" stroke="#aaa" stroke-width="0.4"/>`);
+    labels.push(`<line x1="${x0-3}" y1="${y+rowH}" x2="${x0}" y2="${y+rowH}" stroke="#aaa" stroke-width="0.4"/>`);
+
+    let x = x0;
+    for(const p of row.items){
+      const itemH = p.pieceD * s;
+      const w     = p.pieceW * s;
+      const pid   = pieceId++;
+      const id    = `cp_${plan.fabric.replace(/\W+/g,"_")}_${plan.rollW}_${plan.orient}_${pid}`;
+      const idR   = `cpR_${plan.fabric.replace(/\W+/g,"_")}_${plan.rollW}_${plan.orient}_${pid}`;
+      const clipPad = 2;
+      defs.push(`<clipPath id="${id}"><rect x="${x+clipPad}" y="${y+clipPad}" width="${Math.max(w-clipPad*2,1)}" height="${Math.max(itemH-clipPad*2,1)}"/></clipPath>`);
+      const cx = x + w / 2;
+      const cy = y + itemH / 2;
+      defs.push(`<clipPath id="${idR}" transform="rotate(-90,${cx},${cy})"><rect x="${x+clipPad}" y="${y+clipPad}" width="${Math.max(w-clipPad*2,1)}" height="${Math.max(itemH-clipPad*2,1)}"/></clipPath>`);
+
+      rects.push(`<rect x="${x}" y="${y}" width="${w}" height="${itemH}" fill="#fff" stroke="#111" stroke-width="0.7"/>`);
+
+      // IMPROVEMENT #1: blind number badge top-left
+      if(p.blindNum && w >= 5 && itemH >= 4){
+        const badgeStr = p.qtyLabel ? `#${p.blindNum}(${p.qtyLabel})` : `#${p.blindNum}`;
+        const badgeFs  = Math.max(1.2, Math.min(2.2, Math.min(w, itemH) * 0.13));
+        labels.push(`<text x="${x+1.5}" y="${y+1.8}" dominant-baseline="hanging" font-size="${badgeFs}" fill="#0055cc" style="font-family:Arial,sans-serif;font-weight:900;">${escapeXML(badgeStr)}</text>`);
+      }
+
+      const room = String(p.room || "");
+      let size   = `${p.cutW}×${p.cutD}`;
+      if(p.orient === "railroad") size += " RR";
+
+      const usePortrait = (w < 30) || (w < itemH * 0.55);
+      if(usePortrait){
+        // Portrait (rotated -90°): the piece height becomes text width, piece width becomes text height.
+        // availLen  = how long the text can be  = itemH minus a small padding fraction
+        // availThk  = how thick two lines can be = w minus border padding
+        const padFrac  = Math.min(6, itemH * 0.08); // padding scales with piece, max 6 units
+        const availLen = itemH - padFrac * 2;
+        const availThk = w - 3;
+        // Font size: two lines must fit in availThk with a gap between them
+        const fs      = Math.max(1.0, Math.min(3.2, availThk / 2.4));
+        const lineGap = fs * 1.4;
+        // Max chars: availLen / (char width estimate).
+        // Use 0.55× as Arial is slightly narrower than square.
+        // No hard floor — let the clip handle anything that genuinely won't fit.
+        const maxChars = Math.max(4, Math.floor(availLen / (fs * 0.55)));
+        labels.push(`
+          <g clip-path="url(#${idR})" transform="rotate(-90,${cx},${cy})">
+            <text x="${cx}" y="${cy - lineGap*0.5}" text-anchor="middle" dominant-baseline="middle" font-size="${fs}" fill="#111" style="font-family:Arial,sans-serif;">${escapeXML(trunc(room, maxChars))}</text>
+            <text x="${cx}" y="${cy + lineGap*0.5}" text-anchor="middle" dominant-baseline="middle" font-size="${fs}" fill="#111" style="font-family:Arial,sans-serif;font-weight:700;">${escapeXML(trunc(size, maxChars))}</text>
+          </g>`);
+      } else {
+        // Landscape mode.
+        // Font size: scale with piece width, cap by height so two lines always fit.
+        // fsByW  — grow font as piece gets wider (more room for chars)
+        // fsCapH — shrink font if piece is short (two lines must fit vertically)
+        const fsByW  = Math.max(1.8, w * 0.085);
+        const fsCapH = itemH * 0.24;
+        const fs     = Math.min(fsByW, fsCapH, 5.0);
+        const lineGap = fs * 1.35;
+        // maxChars derived from actual pixel width available and real char width estimate
+        const charW        = fs * 0.56;
+        const availW       = w - 5;
+        const maxCharsRoom = Math.max(5, Math.floor(availW / charW));
+        const maxCharsSize = Math.max(5, Math.floor(availW / charW));
+        if(itemH >= lineGap * 2 + 2){
+          // Two-line layout: room name above, cut size below
+          labels.push(`
+            <g clip-path="url(#${id})">
+              <text x="${cx}" y="${cy - lineGap*0.5}" text-anchor="middle" dominant-baseline="middle" font-size="${fs*0.88}" fill="#111" style="font-family:Arial,sans-serif;">${escapeXML(trunc(room, maxCharsRoom))}</text>
+              <text x="${cx}" y="${cy + lineGap*0.5}" text-anchor="middle" dominant-baseline="middle" font-size="${fs}" fill="#111" style="font-family:Arial,sans-serif;font-weight:700;">${escapeXML(trunc(size, maxCharsSize))}</text>
+            </g>`);
+        } else {
+          // Single line: room – size combined, use full char budget
+          const singleMax = Math.max(8, Math.floor(availW / (fs * 0.56)));
+          labels.push(`
+            <g clip-path="url(#${id})">
+              <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="${fs}" fill="#111" style="font-family:Arial,sans-serif;">${escapeXML(trunc(`${room} ${size}`, singleMax))}</text>
+            </g>`);
+        }
+      }
+      x += w;
+    }
+    y += rowH;
+  }
+
+  const totalLabelY = pad + headerH + (usedLenMm * s) / 2;
+  const top1 = jobHeaderLine();
+  const top2 = `${plan.fabric} • ${plan.rollW}mm • ${plan.orient.toUpperCase()}`;
+
+  return `
+    <div class="svgWrap">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${pageW} ${pageH}" width="100%" height="auto">
+        <rect x="0" y="0" width="${pageW}" height="${pageH}" fill="white"/>
+        <defs>${defs.join("\n")}</defs>
+        ${top1 ? `<text x="${pad}" y="${pad+4.5}" font-size="3.0" fill="#111" style="font-family:Arial,sans-serif;font-weight:700;">${escapeXML(trunc(top1,92))}</text>` : ""}
+        <text x="${pad}" y="${pad+9.5}" font-size="3.2" fill="#111" style="font-family:Arial,sans-serif;font-weight:700;">${escapeXML(trunc(top2,92))}</text>
+        <text x="${pad}" y="${pad+14.5}" font-size="2.8" fill="#333" style="font-family:Arial,sans-serif;">${escapeXML(trunc(usageLine,110))}</text>
+        <text x="${pageW-pad}" y="${pad+4.5}" text-anchor="end" font-size="2.4" fill="#888" style="font-family:Arial,sans-serif;">${escapeXML(printStamp)}</text>
+        <text x="${pageW-pad}" y="${pad+9.5}" text-anchor="end" font-size="2.4" fill="#888" style="font-family:Arial,sans-serif;">${escapeXML(pageNum)}</text>
+        <rect x="${x0}" y="${pad+headerH}" width="${plan.rollW*s}" height="${usedLenMm*s}" fill="none" stroke="#999" stroke-width="0.7"/>
+        <text x="${x0 + (plan.rollW*s)/2}" y="${pad+headerH-1.5}" text-anchor="middle" font-size="2.8" fill="#333" style="font-family:Arial,sans-serif;">${plan.rollW}mm</text>
+        <text x="${pad+leftLabelMargin-2}" y="${totalLabelY}" text-anchor="end" dominant-baseline="middle" font-size="6.0" fill="#111" style="font-family:Arial,sans-serif;font-weight:700;">${escapeXML(`${mFromMm(usedLenMm)}m`)}</text>
+        ${rects.join("\n")}
+        ${labels.join("\n")}
+        <text x="${pageW/2}" y="${pageH-2}" text-anchor="middle" font-size="2.4" fill="#aaa" style="font-family:Arial,sans-serif;">${escapeXML(pageNum)} • CutWizard</text>
+      </svg>
+    </div>
+  `;
+}
+// ─── END makePlanSVG ─────────────────────────────────────────────────────────
+
+function renderPlans(plans){
+  const out = $("plansOut");
+  const notes = $("screenNotes");
+  if(!plans.length){
+    out.innerHTML = `<div class="errBox">No plans to display.</div>`;
+    notes.innerHTML = "";
+    return;
+  }
+  out.innerHTML = plans.map((p,i)=>`<div class="planCard">${makePlanSVG(p,i,plans.length)}</div>`).join("");
+  notes.innerHTML = plans
+    .slice()
+    .sort((a,b)=>(
+      a.fabric.localeCompare(b.fabric) ||
+      a.orient.localeCompare(b.orient) ||
+      a.rollW - b.rollW
+    ))
+    .map(p=>{
+      const req = mFromMm(p.requiredLenMm ?? sum(p.rows.map(r=>r.drop)));
+      const used = mFromMm(p.usedLenMm ?? sum(p.rows.map(r=>r.drop)));
+      const avail = (p.availLenMm > 0) ? mFromMm(p.availLenMm) : "order";
+      const off = (p.availLenMm > 0) ? mFromMm(p.offcutLenMm || 0) : "—";
+      const wasteM2 = (p.wasteAreaMm2 || 0) / 1e6;
+      return `• <b>${escapeXML(p.fabric)}</b> (${escapeXML(p.orient)}) <span class="pill">${p.rollW}mm</span> — req: ${req}m, used: ${used}m, avail: ${avail}, offcut: ${off}m, waste: ${wasteM2.toFixed(3)}m²`;
+    }).join("<br/>");
+}
+function generate(){
+  showMsg("", "");
+  const {pieces, errs} = buildPieces();
+  if(errs.length){
+    showMsg("err", errs.map(e=>`• ${escapeXML(e)}`).join("<br/>"));
+    return;
+  }
+  const {plans, errs:perr} = planCutsMultiWidth(pieces);
+  if(perr.length){
+    showMsg("err", perr.map(e=>`• ${escapeXML(e)}`).join("<br/>"));
+    return;
+  }
+  CW.lastPlans = plans;
+  renderPlans(plans);
+  showMsg("ok", `Generated <b>${plans.length}</b> cut sheet(s).`);
+  setDebug(`Plans: ${plans.length} • Mode: ${$("optimiseMode").value}`);
+}
+function selectAll(val){
+  CW.rows.forEach(r=>{
+    if(!isRowBasicallyEmpty(r)) r.include = val;
+  });
+  renderTable();
+}
+function selectByFabric(val){
+  const f = $("selectFabricBulk").value;
+  CW.rows.forEach(r=>{
+    if(r.fabric===f && !isRowBasicallyEmpty(r)) r.include = val;
+  });
+  renderTable();
+}
+async function importFromExcel(file){
+  try{
+    if(!file){
+      showMsg("err", "No Excel file selected.");
+      return;
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, {type: "array"});
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(sheet, {header: 1, blankrows: false});
+    let customerName = "";
+    let jobRef = "";
+    let custAddr = "";
+    let headerIndex = -1;
+    for(let i = 0; i < data.length; i++){
+      const row = data[i];
+      if(row[0] && clean(String(row[0])).toLowerCase().includes("asj")){
+        customerName = row[4] ? clean(row[4].split("Customer Name-")[1] || "") : "";
+        jobRef = clean(String(row[5] || ""));
+        custAddr = row[7] ? clean(row[7].split("Delivery Address")[1] || row[8] || row[9] || "") : "";
+      }
+      if(row[0] && clean(String(row[0])).toLowerCase().includes("blind #")){
+        headerIndex = i;
+        break;
+      }
+    }
+    const row2 = data[1] || [];
+    if(!custAddr && row2[7]) custAddr = clean(row2[7]);
+    if(customerName) $("custName").value = customerName;
+    if(jobRef) $("jobRef").value = jobRef;
+    if(custAddr) $("custAddr").value = custAddr;
+    if(headerIndex === -1){
+      showMsg("err", "Could not find header row starting with 'Blind #'.");
+      return;
+    }
+    const headers = data[headerIndex].map(h => clean(String(h)).toLowerCase());
+    const rowsData = data.slice(headerIndex + 1).filter(row => row.length > 1 && safeInt(row[0]) > 0 && clean(row[12]));
+
+    // First pass: collect all fabric names from the Excel so we can
+    // auto-create any that aren't already set up in CutWizard.
+    // This prevents unknown fabrics silently falling back to the first fabric.
+    const fabricColIdx = headers.findIndex(h => h.includes("fabric type & colour") || (h.includes("fabric") && !h.includes("location")));
+    if(fabricColIdx >= 0){
+      const excelFabrics = [...new Set(
+        rowsData.map(row => clean(String(row[fabricColIdx] || ""))).filter(Boolean)
+      )];
+      excelFabrics.forEach(fabName => {
+        if(!CW.fabrics[fabName]){
+          // Auto-create with a sensible default width — user can adjust after import
+          // We use the widths of the first existing fabric as a starting point,
+          // or fall back to 2000,2500,3000 if no fabrics exist yet.
+          const existingWidths = Object.values(CW.fabrics)[0]?.widths || [2000,2500,3000];
+          const inventory = {};
+          existingWidths.forEach(w => inventory[w] = 20000);
+          CW.fabrics[fabName] = { widths: existingWidths, inventory };
+        }
+      });
+    }
+
+    // Second pass: build rows, now guaranteed every fabric name has an entry
+    CW.rows = rowsData.map(row => {
+      const r = makeRow({include: true});
+      headers.forEach((h, idx) => {
+        const val = clean(String(row[idx] || ""));
+        if(!val) return;
+        if(h.includes("location")) r.room = val;
+        if(h.includes("cloth size") || h.includes("width x drop")){
+          const match = val.match(/(\d+)\s*X\s*(\d+)/i);
+          if(match){
+            r.w = match[1];
+            r.d = match[2];
+          }
+        }
+        if(h.includes("fabric type & colour") || (h.includes("fabric") && !h.includes("location"))){
+          if(val) r.fabric = val;
+        }
+        if(h.includes("underoll/overoll")){
+          const low = val.toLowerCase();
+          if(low.includes("underoll") || low.includes("overoll")) r.forceRailroad = true;
+        }
+      });
+      return r;
+    });
+
+    // Rebuild fabric UI so new auto-created fabrics appear in dropdowns
+    renderFabricCfg();
+    ensureAtLeastOneRow();
+    renderTable();
+
+    // Count how many unique fabrics were found
+    const uniqueFabrics = fabricColIdx >= 0
+      ? [...new Set(CW.rows.map(r => r.fabric).filter(Boolean))]
+      : [];
+    const newFabrics = uniqueFabrics.filter(f => {
+      const inv = CW.fabrics[f]?.inventory || {};
+      return Object.values(inv).every(v => v === 20000);
+    });
+    const fabricNote = newFabrics.length
+      ? `<br><span style="color:#f5b942">⚠ ${newFabrics.length} new fabric(s) auto-created from Excel: <b>${newFabrics.map(escapeXML).join(", ")}</b> — please check their roll widths in the Fabrics section.</span>`
+      : "";
+
+    showMsg("ok", `Imported ${CW.rows.length} rows from Excel: <b>${escapeXML(file.name)}</b> — ${uniqueFabrics.length} fabric(s) found.${fabricNote}`);
+  }catch(err){
+    showMsg("err", `Excel import failed: ${escapeXML(err.message || String(err))}`);
+  }
+}
+// ── svgToPngDataURL: native browser SVG→Canvas, no external libs ─────────────
+function svgToPngDataURL(svgEl, pxW, pxH){
+  return new Promise((resolve, reject) => {
+    const serialised = new XMLSerializer().serializeToString(svgEl);
+    const encoded    = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(serialised);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width  = pxW;
+        canvas.height = pxH;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, pxW, pxH);
+        ctx.drawImage(img, 0, 0, pxW, pxH);
+        resolve(canvas.toDataURL("image/jpeg", 0.93));
+      } catch(e){ reject(e); }
+    };
+    img.onerror = () => reject(new Error("SVG image load failed"));
+    img.src = encoded;
+  });
+}
+
+// ── buildPdf: returns a jsPDF doc (or throws) ─────────────────────────────────
+async function buildPdf(){
+  if(typeof window.jspdf === "undefined")
+    throw new Error("jsPDF library not loaded — check internet connection.");
+  const { jsPDF } = window.jspdf;
+  const A4W = 210, A4H = 297;
+  const DPI = 150;
+  const pxW = Math.round(A4W / 25.4 * DPI);
+  const pxH = Math.round(A4H / 25.4 * DPI);
+  const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  for(let i = 0; i < CW.lastPlans.length; i++){
+    if(i > 0) pdf.addPage("a4","portrait");
+    const tmp = document.createElement("div");
+    tmp.innerHTML = makePlanSVG(CW.lastPlans[i], i, CW.lastPlans.length);
+    const svgEl = tmp.querySelector("svg");
+    if(!svgEl) throw new Error(`Sheet ${i+1}: no SVG element found`);
+    svgEl.setAttribute("width",  pxW);
+    svgEl.setAttribute("height", pxH);
+    const imgData = await svgToPngDataURL(svgEl, pxW, pxH);
+    pdf.addImage(imgData, "JPEG", 0, 0, A4W, A4H, `p${i}`, "FAST");
+  }
+  return pdf;
+}
+
+// ── downloadPdfOnly: Download PDF button handler ──────────────────────────────
+async function downloadPdfOnly(){
+  if(!CW.lastPlans || !CW.lastPlans.length){
+    showMsg("err","Generate cut plans first.");
+    return;
+  }
+  const btn = $("btnDownloadPdf");
+  const origTxt = btn.innerHTML;
+  btn.innerHTML = "&#9203; Building&hellip;";
+  btn.disabled = true;
+  try {
+    const jobRef  = clean($("jobRef").value) || "CutWizard_Job";
+    const safeKey = jobRef.replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"_") || "CutPlans";
+    const fileName = `${safeKey}_CutPlans.pdf`;
+    const pdf = await buildPdf();
+    // Use output("blob") + object URL for guaranteed download in all browsers
+    const blob = pdf.output("blob");
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+    showMsg("ok", `<b>\u2713 PDF downloaded:</b> ${escapeXML(fileName)}`);
+  } catch(err){
+    showMsg("err", `PDF build failed: ${escapeXML(err.message || String(err))}`);
+  } finally {
+    btn.innerHTML = origTxt;
+    btn.disabled  = false;
+  }
+}
+
+// ── emailCutPlans: Download PDF then open Outlook ─────────────────────────────
+function emailCutPlans(){
+  if(!CW.lastPlans || !CW.lastPlans.length){
+    showMsg("err","Generate cut plans first before emailing.");
+    return;
+  }
+  const factoryEmail = clean($("factoryEmail").value);
+  const jobRef   = clean($("jobRef").value)  || "CutWizard Job";
+  const custName = clean($("custName").value);
+  const safeKey  = jobRef.replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"_") || "CutPlans";
+  const fileName = `${safeKey}_CutPlans.pdf`;
+  const subject  = encodeURIComponent(`Cut Plans \u2013 ${jobRef}${custName ? " \u2013 " + custName : ""}`);
+  const bodyLines = [
+    `Cut Plans: ${jobRef}${custName ? " | " + custName : ""}`,
+    `Generated: ${new Date().toLocaleString("en-AU")}`,
+    ``,
+    `ATTACH PDF: ${fileName}`,
+    `(Use the \u2193 Download PDF button to save the PDF, then attach it here)`,
+    ``,
+    `Summary:`,
+    ...CW.lastPlans.map((p,i)=>
+      `  Sheet ${i+1}: ${p.fabric} \u2022 ${p.rollW}mm \u2022 ${p.orient.toUpperCase()} \u2014 ${mFromMm(p.usedLenMm)}m`
+    ),
+    ``,
+    `--- CutWizard ---`,
+  ];
+  const body = encodeURIComponent(bodyLines.join("\r\n"));
+  // Open in new tab so CutWizard page stays intact
+  const a = document.createElement("a");
+  a.href   = `mailto:${factoryEmail}?subject=${subject}&body=${body}`;
+  a.target = "_blank";
+  a.rel    = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showMsg("ok",
+    `Outlook is opening.<br>` +
+    `<b>Step 1:</b> Click <b>\u2193 Download PDF</b> to save the cut plan PDF.<br>` +
+    `<b>Step 2:</b> In Outlook, attach the PDF from your Downloads folder and send.`
+  );
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  $("btnNewJob").addEventListener("click", newJob);
+  $("btnAddFabric").addEventListener("click", addOrUpdateFabric);
+  $("btnDeleteFabric").addEventListener("click", deleteFabric);
+  $("btnAddRow").addEventListener("click", ()=>{
+    CW.rows.push(makeRow({include:true}));
+    renderTable();
+  });
+  $("btnSelectAll").addEventListener("click", ()=>selectAll(true));
+  $("btnSelectNone").addEventListener("click", ()=>selectAll(false));
+  $("btnSelectFabric").addEventListener("click", ()=>selectByFabric(true));
+  $("btnUnselectFabric").addEventListener("click", ()=>selectByFabric(false));
+  $("btnGenerate").addEventListener("click", generate);
+  $("entryMode").addEventListener("change", renderTable);
+  $("defaultOrient").addEventListener("change", renderTable);
+  $("optimiseMode").addEventListener("change", ()=>{ if(CW.lastPlans) generate(); });
+  $("btnPrint").addEventListener("click", ()=>{
+    if(!CW.lastPlans) generate();
+    window.print();
+  });
+  $("btnDownloadPdf").addEventListener("click", downloadPdfOnly);
+  $("btnEmailPlans").addEventListener("click", emailCutPlans);
+  $("btnSaveLocal").addEventListener("click", saveJobLocal);
+  $("btnSaveDrive").addEventListener("click", saveToDrive);
+  $("btnLoadLocal").addEventListener("click", loadJobLocal);
+  $("btnDeleteLocal").addEventListener("click", deleteJobLocal);
+  $("btnListDrive").addEventListener("click", listDriveJobs);
+  $("btnDownloadJob").addEventListener("click", downloadJobFile);
+  $("btnOpenJob").addEventListener("click", ()=> $("fileImport").click());
+  $("fileImport").addEventListener("change", async (e)=>{
+    const f = e.target.files && e.target.files[0];
+    await importJobFile(f);
+    e.target.value = "";
+  });
+  $("btnImportExcel").addEventListener("click", ()=> $("excelImport").click());
+  $("excelImport").addEventListener("change", async (e)=>{
+    const f = e.target.files && e.target.files[0];
+    await importFromExcel(f);
+    e.target.value = "";
+  });
+  renderFabricCfg();
+  ensureAtLeastOneRow();
+  if(CW.rows.length===1) CW.rows.push(makeRow({include:true}));
+  renderTable();
+  renderJobLibrary();
+  setDebug("Ready – CUT sizes now default");
+  const params = new URLSearchParams(location.search);
+  const fileIdParam = params.get('fileId');
+  if(fileIdParam){
+    loadDriveFile(fileIdParam);
+  }
+});
+</script>
+</body>
+</html>
