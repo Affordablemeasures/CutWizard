@@ -1735,7 +1735,19 @@ function planCutsMultiWidth(pieces){
 }
 
 function mergeRailroadIntoWaste(plans){
-  // Separate normal and railroad plans
+  // For each railroaded piece, check if it can be cut from the waste strip
+  // of a normal-orientation row of the same fabric + roll width.
+  //
+  // A RR piece in the waste strip is cut independently — it doesn't need to
+  // match the normal row's drop. The only constraint is that the waste strip
+  // is wide enough to accommodate the RR piece's width (its cut drop, since
+  // it runs along the roll length direction when railroaded).
+  //
+  // Example: RR piece cutW=900, cutD=2369 → when railroaded, it uses
+  // 2369mm along the roll and 900mm across. So it needs 900mm of waste width.
+  // The normal row waste strip just needs to be >= 900mm wide.
+  // The RR piece is then cut to its own 2369mm length from that strip.
+
   const normalPlans = plans.filter(p => !p.railroad);
   const rrPlans     = plans.filter(p =>  p.railroad);
   if(!rrPlans.length) return plans;
@@ -1745,56 +1757,46 @@ function mergeRailroadIntoWaste(plans){
 
     for(let ri = 0; ri < rrPlan.rows.length; ri++){
       const rrRow = rrPlan.rows[ri];
-      // A RR row can be merged only if it contains exactly one piece
-      // (multi-piece RR rows are already packed and too complex to split)
-      if(rrRow.items.length !== 1) continue;
+      if(rrRow.items.length !== 1) continue; // only merge single-piece RR rows
 
-      const piece = rrRow.items[0];
-      // In railroad orientation: pieceW = cutD, pieceD = cutW
-      // To place on a normal plan we need: width = cutD, drop = cutW
-      const neededW   = piece.pieceW;  // how wide it is on the RR plan
-      const neededDrop = piece.pieceD; // how tall (the drop on RR plan = cutW)
+      const piece   = rrRow.items[0];
+      // pieceW = cutD (width across roll when RR), pieceD = cutW (along roll)
+      const neededW = piece.pieceW; // waste strip must be at least this wide
 
-      // Find a normal plan row of the same fabric + rollW where:
-      //   (a) waste strip width >= neededW
-      //   (b) row drop >= neededDrop (piece must not exceed the row height)
       let placed = false;
       for(const normalPlan of normalPlans){
         if(normalPlan.fabric !== rrPlan.fabric) continue;
         if(normalPlan.rollW  !== rrPlan.rollW)  continue;
 
-        for(const normalRow of normalPlan.rows){
-          const wasteW = normalPlan.rollW - normalRow.usedW;
-          if(wasteW  < neededW)   continue;
-          if(normalRow.drop < neededDrop) continue;
+        // Find the row with the most waste that can fit this piece
+        // Sort rows by waste descending to find best fit
+        const rowsByWaste = normalPlan.rows
+          .map((r,i) => ({r, i, waste: normalPlan.rollW - r.usedW}))
+          .filter(x => x.waste >= neededW)
+          .sort((a,b) => b.waste - a.waste);
 
-          // It fits! Place the piece in this row, marked as railroaded
-          const mergedPiece = {
-            ...piece,
-            // Swap back to normal-plan coordinate space
-            pieceW:   neededW,
-            pieceD:   neededDrop,
-            // Keep original cut dims but mark as RR so label shows it
-            cutW:     piece.cutW,
-            cutD:     piece.cutD,
-            orient:   "railroad",
-            rrMerged: true   // flag so SVG can show [RR] label
-          };
-          normalRow.items.push(mergedPiece);
-          normalRow.usedW += neededW;
-          // Recalculate normal plan stats
-          normalPlan.wasteAreaMm2 = sum(normalPlan.rows.map(r =>
-            (normalPlan.rollW - r.usedW) * r.drop
-          ));
-          rowsToRemove.add(ri);
-          placed = true;
-          break;
-        }
-        if(placed) break;
+        if(!rowsByWaste.length) continue;
+
+        // Use the row with the most waste (greedy best fit)
+        const bestRow = rowsByWaste[0].r;
+        const mergedPiece = {
+          ...piece,
+          pieceW:   neededW,
+          pieceD:   piece.pieceD,
+          orient:   "railroad",
+          rrMerged: true
+        };
+        bestRow.items.push(mergedPiece);
+        bestRow.usedW += neededW;
+        normalPlan.wasteAreaMm2 = sum(normalPlan.rows.map(r =>
+          (normalPlan.rollW - r.usedW) * r.drop
+        ));
+        rowsToRemove.add(ri);
+        placed = true;
+        break;
       }
     }
 
-    // Remove merged rows from the RR plan
     if(rowsToRemove.size > 0){
       rrPlan.rows = rrPlan.rows.filter((_,i) => !rowsToRemove.has(i));
       if(rrPlan.rows.length > 0){
@@ -1806,7 +1808,6 @@ function mergeRailroadIntoWaste(plans){
     }
   }
 
-  // Remove any RR plans that are now empty (all pieces merged into normal plans)
   return [...normalPlans, ...rrPlans.filter(p => p.rows.length > 0)]
     .sort((a,b)=>(
       a.fabric.localeCompare(b.fabric) ||
@@ -2292,31 +2293,32 @@ async function saveFabricDb(){
 
 async function loadFabricDb(silent=false){
   try{
-    const res    = await fetch(`${DRIVE_SCRIPT_URL}?action=list`);
+    // Use dedicated loadFabricLib action so the Apps Script can find it
+    // regardless of whether it appears in the job list
+    const res    = await fetch(`${DRIVE_SCRIPT_URL}?action=loadFabricLib`);
     const result = JSON.parse(await res.text());
-    if(result.status !== "list") return;
-    // Find the fabric library file
-    const libFile = (result.files||[]).find(f => f.fileName === FABRIC_DB_FILENAME);
-    if(!libFile){
-      if(!silent) showMsg("err","No fabric library found in Drive yet. Add your fabrics and click Save Fabric Library to Drive.");
+    if(result.status === "notFound"){
+      if(!silent) showMsg("err","No fabric library found in Drive yet. Add your fabrics and click ☁ Save Fabric Library to Drive.");
       return;
     }
-    const res2   = await fetch(`${DRIVE_SCRIPT_URL}?action=load&fileId=${encodeURIComponent(libFile.fileId)}`);
-    const result2 = JSON.parse(await res2.text());
-    if(result2.status !== "loaded" || !result2.data) return;
-    const data = result2.data;
-    if(data.type !== "fabricLibrary" || !data.fabrics) return;
-    // Merge loaded fabrics with any already in CW (don't overwrite user changes)
-    let added = 0;
-    for(const [name, cfg] of Object.entries(data.fabrics)){
-      if(!CW.fabrics[name]){
-        CW.fabrics[name] = cfg;
-        added++;
-      }
+    if(result.status !== "loaded" || !result.data){
+      if(!silent) showMsg("err", `Fabric library load failed: ${escapeXML(result.message||"Unknown error")}`);
+      return;
     }
+    const data = result.data;
+    if(!data.fabrics){
+      if(!silent) showMsg("err","Fabric library file appears empty or invalid.");
+      return;
+    }
+    // Merge: add fabrics from Drive, overwriting local ones with Drive versions
+    const before = Object.keys(CW.fabrics).length;
+    for(const [name, cfg] of Object.entries(data.fabrics)){
+      CW.fabrics[name] = cfg;
+    }
+    const after = Object.keys(CW.fabrics).length;
     renderFabricCfg();
     if(!silent){
-      showMsg("ok", `&#9729; Fabric library loaded from Drive: <b>${Object.keys(data.fabrics).length} fabric(s)</b>${added ? ` (${added} new added)` : " (all already present)"}`);
+      showMsg("ok", `&#9729; Fabric library loaded: <b>${after} fabric(s)</b> (${after - before > 0 ? after - before + " new" : "all up to date"})`);
     }
   }catch(err){
     if(!silent) showMsg("err", `Fabric library load failed: ${escapeXML(String(err))}`);
