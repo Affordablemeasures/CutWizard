@@ -652,8 +652,9 @@ function applyJobPayload(payload){
     if(!("qty" in r)) r.qty = 1;
   });
   renderFabricCfg();
-  // Auto-load fabric library from Drive silently on startup
-  loadFabricDb(true);
+  // Auto-load fabric library silently — wrapped in setTimeout so any
+  // network error never blocks the rest of DOMContentLoaded wiring
+  setTimeout(()=>{ loadFabricDb(true).catch(()=>{}); }, 1500);
   ensureAtLeastOneRow();
   if(CW.rows.length===1) CW.rows.push(makeRow({include:true}));
   renderTable();
@@ -2286,6 +2287,7 @@ async function saveFabricDb(){
 
 async function loadFabricDb(silent=false){
   try{
+    if(!DRIVE_SCRIPT_URL){ if(!silent) showMsg("err","Drive not configured."); return; }
     const res  = await fetch(`${DRIVE_SCRIPT_URL}?action=loadFabricLib`);
     const raw  = await res.text();
     let result;
@@ -2323,6 +2325,11 @@ async function loadFabricDb(silent=false){
 // ─────────────────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded",()=>{
+  // Wire fabric DB buttons first — before anything that could throw
+  const _sfdb = $("btnSaveFabricDb");
+  const _lfdb = $("btnLoadFabricDb");
+  if(_sfdb) _sfdb.addEventListener("click", saveFabricDb);
+  if(_lfdb) _lfdb.addEventListener("click", ()=> loadFabricDb(false));
   $("btnNewJob").addEventListener("click", newJob);
   $("btnAddFabric").addEventListener("click", addOrUpdateFabric);
   $("btnDeleteFabric").addEventListener("click", deleteFabric);
@@ -2344,8 +2351,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   });
   $("btnDownloadPdf").addEventListener("click", downloadPdfOnly);
   $("btnEmailPlans").addEventListener("click", emailCutPlans);
-  $("btnSaveFabricDb").addEventListener("click", saveFabricDb);
-  $("btnLoadFabricDb").addEventListener("click", ()=> loadFabricDb(false));
+  // btnSaveFabricDb and btnLoadFabricDb already wired above
   $("btnSaveLocal").addEventListener("click", saveJobLocal);
   $("btnSaveDrive").addEventListener("click", saveToDrive);
   $("btnLoadLocal").addEventListener("click", loadJobLocal);
