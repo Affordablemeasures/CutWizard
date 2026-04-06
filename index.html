@@ -397,6 +397,8 @@
       <div class="btnrow">
         <button id="btnAddFabric">Add / Update Fabric</button>
         <button class="danger" id="btnDeleteFabric">Delete Fabric</button>
+        <button id="btnSaveFabricDb" style="background:#1a3a5c;border-color:#2a5a8c;color:#b8d4f0;">&#9729; Save Fabric Library to Drive</button>
+        <button class="ghost" id="btnLoadFabricDb">&#8659; Load Fabric Library from Drive</button>
       </div>
       <div id="fabricCfgOut" class="hint" style="margin-top:10px"></div>
       <div id="fabSettingsBox"></div>
@@ -650,6 +652,8 @@ function applyJobPayload(payload){
     if(!("qty" in r)) r.qty = 1;
   });
   renderFabricCfg();
+  // Auto-load fabric library from Drive silently on startup
+  loadFabricDb(true);
   ensureAtLeastOneRow();
   if(CW.rows.length===1) CW.rows.push(makeRow({include:true}));
   renderTable();
@@ -1720,7 +1724,95 @@ function planCutsMultiWidth(pieces){
     a.orient.localeCompare(b.orient) ||
     a.rollW - b.rollW
   ));
+  // ── Railroad waste optimisation ───────────────────────────────────────────
+  // For each railroaded piece that ends up on its own plan, check whether its
+  // rotated footprint (pieceD wide × pieceW drop) fits in the waste strip of
+  // any existing normal-orientation row of the same fabric + rollW.
+  // If it fits, place it there (marked as RR) and remove it from the RR plan.
+  outPlans = mergeRailroadIntoWaste(outPlans);
+
   return {plans: outPlans, errs};
+}
+
+function mergeRailroadIntoWaste(plans){
+  // Separate normal and railroad plans
+  const normalPlans = plans.filter(p => !p.railroad);
+  const rrPlans     = plans.filter(p =>  p.railroad);
+  if(!rrPlans.length) return plans;
+
+  for(const rrPlan of rrPlans){
+    const rowsToRemove = new Set();
+
+    for(let ri = 0; ri < rrPlan.rows.length; ri++){
+      const rrRow = rrPlan.rows[ri];
+      // A RR row can be merged only if it contains exactly one piece
+      // (multi-piece RR rows are already packed and too complex to split)
+      if(rrRow.items.length !== 1) continue;
+
+      const piece = rrRow.items[0];
+      // In railroad orientation: pieceW = cutD, pieceD = cutW
+      // To place on a normal plan we need: width = cutD, drop = cutW
+      const neededW   = piece.pieceW;  // how wide it is on the RR plan
+      const neededDrop = piece.pieceD; // how tall (the drop on RR plan = cutW)
+
+      // Find a normal plan row of the same fabric + rollW where:
+      //   (a) waste strip width >= neededW
+      //   (b) row drop >= neededDrop (piece must not exceed the row height)
+      let placed = false;
+      for(const normalPlan of normalPlans){
+        if(normalPlan.fabric !== rrPlan.fabric) continue;
+        if(normalPlan.rollW  !== rrPlan.rollW)  continue;
+
+        for(const normalRow of normalPlan.rows){
+          const wasteW = normalPlan.rollW - normalRow.usedW;
+          if(wasteW  < neededW)   continue;
+          if(normalRow.drop < neededDrop) continue;
+
+          // It fits! Place the piece in this row, marked as railroaded
+          const mergedPiece = {
+            ...piece,
+            // Swap back to normal-plan coordinate space
+            pieceW:   neededW,
+            pieceD:   neededDrop,
+            // Keep original cut dims but mark as RR so label shows it
+            cutW:     piece.cutW,
+            cutD:     piece.cutD,
+            orient:   "railroad",
+            rrMerged: true   // flag so SVG can show [RR] label
+          };
+          normalRow.items.push(mergedPiece);
+          normalRow.usedW += neededW;
+          // Recalculate normal plan stats
+          normalPlan.wasteAreaMm2 = sum(normalPlan.rows.map(r =>
+            (normalPlan.rollW - r.usedW) * r.drop
+          ));
+          rowsToRemove.add(ri);
+          placed = true;
+          break;
+        }
+        if(placed) break;
+      }
+    }
+
+    // Remove merged rows from the RR plan
+    if(rowsToRemove.size > 0){
+      rrPlan.rows = rrPlan.rows.filter((_,i) => !rowsToRemove.has(i));
+      if(rrPlan.rows.length > 0){
+        rrPlan.requiredLenMm = sum(rrPlan.rows.map(r=>r.drop));
+        rrPlan.usedLenMm     = rrPlan.requiredLenMm;
+        rrPlan.offcutLenMm   = Math.max(0, rrPlan.availLenMm - rrPlan.usedLenMm);
+        rrPlan.wasteAreaMm2  = sum(rrPlan.rows.map(r => (rrPlan.rollW - r.usedW) * r.drop));
+      }
+    }
+  }
+
+  // Remove any RR plans that are now empty (all pieces merged into normal plans)
+  return [...normalPlans, ...rrPlans.filter(p => p.rows.length > 0)]
+    .sort((a,b)=>(
+      a.fabric.localeCompare(b.fabric) ||
+      a.orient.localeCompare(b.orient) ||
+      a.rollW - b.rollW
+    ));
 }
 
 // ─── makePlanSVG v3: blind#, waste shade, row-drop labels, timestamp, page# ──
@@ -2171,6 +2263,67 @@ function emailCutPlans(){
   );
 }
 
+// ── Fabric Library: save/load all fabrics to/from Drive as one JSON file ────────
+const FABRIC_DB_FILENAME = "CutWizard_FabricLibrary.json";
+
+async function saveFabricDb(){
+  const btn = $("btnSaveFabricDb");
+  const orig = btn.textContent;
+  btn.textContent = "Saving…"; btn.disabled = true;
+  try{
+    const payload = { type:"fabricLibrary", savedAt: new Date().toISOString(), fabrics: CW.fabrics };
+    const res  = await fetch(DRIVE_SCRIPT_URL, {
+      method:"POST",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify(payload)
+    });
+    const result = JSON.parse(await res.text());
+    if(result.status === "saved"){
+      showMsg("ok", `&#9729; Fabric library saved to Drive: <b>${Object.keys(CW.fabrics).length} fabric(s)</b>`);
+    } else {
+      showMsg("err", `Fabric library save failed: ${escapeXML(result.message||"Unknown")}`);
+    }
+  }catch(err){
+    showMsg("err", `Fabric library save failed: ${escapeXML(String(err))}`);
+  } finally {
+    btn.textContent = orig; btn.disabled = false;
+  }
+}
+
+async function loadFabricDb(silent=false){
+  try{
+    const res    = await fetch(`${DRIVE_SCRIPT_URL}?action=list`);
+    const result = JSON.parse(await res.text());
+    if(result.status !== "list") return;
+    // Find the fabric library file
+    const libFile = (result.files||[]).find(f => f.fileName === FABRIC_DB_FILENAME);
+    if(!libFile){
+      if(!silent) showMsg("err","No fabric library found in Drive yet. Add your fabrics and click Save Fabric Library to Drive.");
+      return;
+    }
+    const res2   = await fetch(`${DRIVE_SCRIPT_URL}?action=load&fileId=${encodeURIComponent(libFile.fileId)}`);
+    const result2 = JSON.parse(await res2.text());
+    if(result2.status !== "loaded" || !result2.data) return;
+    const data = result2.data;
+    if(data.type !== "fabricLibrary" || !data.fabrics) return;
+    // Merge loaded fabrics with any already in CW (don't overwrite user changes)
+    let added = 0;
+    for(const [name, cfg] of Object.entries(data.fabrics)){
+      if(!CW.fabrics[name]){
+        CW.fabrics[name] = cfg;
+        added++;
+      }
+    }
+    renderFabricCfg();
+    if(!silent){
+      showMsg("ok", `&#9729; Fabric library loaded from Drive: <b>${Object.keys(data.fabrics).length} fabric(s)</b>${added ? ` (${added} new added)` : " (all already present)"}`);
+    }
+  }catch(err){
+    if(!silent) showMsg("err", `Fabric library load failed: ${escapeXML(String(err))}`);
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 document.addEventListener("DOMContentLoaded",()=>{
   $("btnNewJob").addEventListener("click", newJob);
   $("btnAddFabric").addEventListener("click", addOrUpdateFabric);
@@ -2193,6 +2346,8 @@ document.addEventListener("DOMContentLoaded",()=>{
   });
   $("btnDownloadPdf").addEventListener("click", downloadPdfOnly);
   $("btnEmailPlans").addEventListener("click", emailCutPlans);
+  $("btnSaveFabricDb").addEventListener("click", saveFabricDb);
+  $("btnLoadFabricDb").addEventListener("click", ()=> loadFabricDb(false));
   $("btnSaveLocal").addEventListener("click", saveJobLocal);
   $("btnSaveDrive").addEventListener("click", saveToDrive);
   $("btnLoadLocal").addEventListener("click", loadJobLocal);
