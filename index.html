@@ -1724,13 +1724,6 @@ function planCutsMultiWidth(pieces){
     a.orient.localeCompare(b.orient) ||
     a.rollW - b.rollW
   ));
-  // ── Railroad waste optimisation ───────────────────────────────────────────
-  // For each railroaded piece that ends up on its own plan, check whether its
-  // rotated footprint (pieceD wide × pieceW drop) fits in the waste strip of
-  // any existing normal-orientation row of the same fabric + rollW.
-  // If it fits, place it there (marked as RR) and remove it from the RR plan.
-  outPlans = mergeRailroadIntoWaste(outPlans);
-
   return {plans: outPlans, errs};
 }
 
@@ -2293,24 +2286,27 @@ async function saveFabricDb(){
 
 async function loadFabricDb(silent=false){
   try{
-    // Use dedicated loadFabricLib action so the Apps Script can find it
-    // regardless of whether it appears in the job list
-    const res    = await fetch(`${DRIVE_SCRIPT_URL}?action=loadFabricLib`);
-    const result = JSON.parse(await res.text());
+    const res  = await fetch(`${DRIVE_SCRIPT_URL}?action=loadFabricLib`);
+    const raw  = await res.text();
+    let result;
+    try{ result = JSON.parse(raw); }
+    catch(e){
+      if(!silent) showMsg("err", `Fabric library: unexpected response from Drive script.<br><span style="font-size:11px">${escapeXML(raw.slice(0,200))}</span>`);
+      return;
+    }
     if(result.status === "notFound"){
-      if(!silent) showMsg("err","No fabric library found in Drive yet. Add your fabrics and click ☁ Save Fabric Library to Drive.");
+      if(!silent) showMsg("err","No fabric library found in Drive yet. Add your fabrics and click &#9729; Save Fabric Library to Drive first.");
       return;
     }
     if(result.status !== "loaded" || !result.data){
-      if(!silent) showMsg("err", `Fabric library load failed: ${escapeXML(result.message||"Unknown error")}`);
+      if(!silent) showMsg("err", `Fabric library load failed: ${escapeXML(result.message||JSON.stringify(result))}`);
       return;
     }
     const data = result.data;
     if(!data.fabrics){
-      if(!silent) showMsg("err","Fabric library file appears empty or invalid.");
+      if(!silent) showMsg("err","Fabric library file found but contains no fabrics.");
       return;
     }
-    // Merge: add fabrics from Drive, overwriting local ones with Drive versions
     const before = Object.keys(CW.fabrics).length;
     for(const [name, cfg] of Object.entries(data.fabrics)){
       CW.fabrics[name] = cfg;
@@ -2318,10 +2314,10 @@ async function loadFabricDb(silent=false){
     const after = Object.keys(CW.fabrics).length;
     renderFabricCfg();
     if(!silent){
-      showMsg("ok", `&#9729; Fabric library loaded: <b>${after} fabric(s)</b> (${after - before > 0 ? after - before + " new" : "all up to date"})`);
+      showMsg("ok", `&#9729; Fabric library loaded: <b>${after} fabric(s)</b>${after > before ? ` (${after-before} new added)` : " — all up to date"}`);
     }
   }catch(err){
-    if(!silent) showMsg("err", `Fabric library load failed: ${escapeXML(String(err))}`);
+    if(!silent) showMsg("err", `Fabric library load failed: ${escapeXML(String(err))}<br><span style="font-size:11px">Check your internet connection and that the Apps Script is deployed.</span>`);
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
